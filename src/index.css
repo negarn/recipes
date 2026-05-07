@@ -1,0 +1,104 @@
+@import "tailwindcss";
+
+@theme {
+  --font-sans: "Avenir Next", "Segoe UI", sans-serif;
+  --font-display: "Iowan Old Style", "Palatino Linotype", "Book Antiqua", serif;
+
+  --color-app-soft-stone: #c7d1c7;
+  --color-app-soft-stone-strong: #d2ddd2;
+  --color-app-soft-stone-soft: #e5ece5;
+  --color-app-soft-stone-deep: #b2c0b5;
+  --color-app-bg: #c7d1c7;
+  --color-app-surface: rgba(244, 249, 244, 0.95);
+  --color-app-surface-strong: rgba(250, 253, 250, 0.98);
+  --color-app-surface-soft: rgba(236, 243, 236, 0.93);
+  --color-app-surface-tint: rgba(220, 231, 222, 0.98);
+  --color-app-ink: #17211c;
+  --color-app-ink-soft: #24312a;
+  --color-app-muted: #4a5a53;
+  --color-app-muted-soft: #5f6e68;
+  --color-app-line: rgba(23, 33, 28, 0.16);
+  --color-app-line-strong: rgba(35, 85, 67, 0.28);
+  --color-app-line-focus: rgba(35, 85, 67, 0.42);
+  --color-app-brand: #2d6a54;
+  --color-app-brand-strong: #235543;
+  --color-app-brand-soft: #d6e5dc;
+  --color-app-success: #2d7b4b;
+  --color-app-success-soft: rgba(45, 123, 75, 0.14);
+  --color-app-success-line: rgba(45, 123, 75, 0.34);
+  --color-app-accent: #b5673e;
+  --color-app-danger: #9b4e3a;
+  --color-app-danger-soft: rgba(155, 78, 58, 0.14);
+  --color-app-danger-line: rgba(155, 78, 58, 0.34);
+  --color-app-danger-action-soft: rgba(155, 78, 58, 0.12);
+  --color-app-danger-action-soft-hover: rgba(155, 78, 58, 0.18);
+  --color-app-on-accent: #fffaf1;
+  --color-app-rating-star: #c7881f;
+  --color-app-rating-star-empty: rgba(199, 136, 31, 0.22);
+  --color-app-field: rgba(248, 251, 246, 0.98);
+  --color-app-field-border: rgba(45, 106, 84, 0.26);
+  --color-app-field-border-strong: rgba(45, 106, 84, 0.36);
+  --color-app-placeholder: rgba(95, 110, 104, 0.66);
+  --color-app-focus-ring: rgba(45, 106, 84, 0.24);
+  --color-app-button-surface: rgba(214, 226, 216, 0.96);
+  --color-app-button-surface-hover: rgba(223, 234, 225, 0.98);
+  --color-app-button-tint: rgba(205, 221, 209, 0.98);
+  --color-app-button-tint-hover: #b9cfbe;
+  --color-app-card-accent: #235543;
+  --color-app-card-accent-soft: rgba(205, 221, 209, 0.96);
+  --color-app-card-accent-soft-hover: rgba(190, 209, 196, 0.98);
+  --color-app-card-accent-line: rgba(35, 85, 67, 0.3);
+  --color-app-meal-panel: rgba(214, 229, 217, 0.72);
+  --color-app-meal-day-chip: rgba(191, 213, 198, 0.94);
+  --color-app-meal-row: rgba(221, 234, 223, 0.98);
+  --color-app-meal-row-hover: rgba(210, 226, 213, 0.99);
+  --color-app-history-line: rgba(181, 130, 58, 0.32);
+  --color-app-history-panel: rgba(248, 236, 211, 0.58);
+  --color-app-history-day-chip: rgba(241, 224, 191, 0.9);
+  --color-app-history-row: rgba(254, 247, 234, 0.95);
+  --color-app-history-row-hover: rgba(249, 239, 216, 0.97);
+}
+
+@layer base {
+  html {
+    min-height: 100dvh;
+    background-color: var(--color-app-soft-stone-strong);
+  }
+
+  body {
+    min-height: 100dvh;
+    color: var(--color-app-ink);
+    font-family: var(--font-sans);
+    font-weight: 400;
+    line-height: 1.5;
+    text-rendering: optimizeLegibility;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    background-color: var(--color-app-soft-stone-strong);
+  }
+
+  body::before {
+    content: none;
+  }
+
+  body::after {
+    content: none;
+  }
+
+  a {
+    color: inherit;
+    text-decoration: none;
+  }
+
+  button,
+  input,
+  select,
+  textarea {
+    font: inherit;
+  }
+
+  #root {
+    min-height: 100dvh;
+    background-color: var(--color-app-soft-stone-strong);
+  }
+}
