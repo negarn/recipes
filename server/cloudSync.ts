@@ -17,6 +17,7 @@ import {
   type RecipeAppDataSnapshot
 } from '../src/helpers/cloudSyncData';
 import { getCloudSyncCallbackPath, getCloudSyncAuthorizePath } from '../src/helpers/cloudSyncRoutes';
+import { getRequestOrigin } from './publicOrigin';
 import {
   ensurePrivateJsonStorageFile,
   writePrivateJsonFile
@@ -204,17 +205,6 @@ function getErrorMessage(value: unknown, fallbackMessage: string) {
 
 function formatJsonResponseBody(value: unknown) {
   return `${JSON.stringify(value, null, 2)}\n`;
-}
-
-function getRequestOrigin(request: IncomingMessage) {
-  const host = request.headers.host;
-  const protocol = request.headers['x-forwarded-proto']?.toString().split(',')[0] ?? 'http';
-
-  if (typeof host === 'string' && host.length > 0) {
-    return `${protocol}://${host}`;
-  }
-
-  return 'http://127.0.0.1:5173';
 }
 
 async function readRequestBody(request: IncomingMessage) {

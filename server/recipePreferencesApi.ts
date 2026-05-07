@@ -36,6 +36,11 @@ import {
   type CloudSyncManager
 } from './cloudSync';
 import {
+  getConfiguredPublicOrigin,
+  getConfiguredPublicOriginHostName,
+  getRequestOriginHeader
+} from './publicOrigin';
+import {
   createEmptyRecipeAppDataSnapshot,
   type RecipeAppDataSnapshot
 } from '../src/helpers/cloudSyncData';
@@ -159,6 +164,48 @@ function isTrustedLocalRequest(request: IncomingMessage) {
     isLoopbackRemoteAddress(request.socket?.remoteAddress) &&
     Boolean(hostName && LOOPBACK_HOST_NAMES.has(hostName))
   );
+}
+
+function isTrustedPublicOriginRequest(
+  request: IncomingMessage,
+  requestPath: string
+) {
+  const configuredPublicOrigin = getConfiguredPublicOrigin();
+  const configuredPublicOriginHostName = getConfiguredPublicOriginHostName();
+
+  if (!configuredPublicOrigin || !configuredPublicOriginHostName) {
+    return false;
+  }
+
+  const hostName = getRequestHostName(request);
+
+  if (hostName !== configuredPublicOriginHostName) {
+    return false;
+  }
+
+  const isCloudSyncCallbackRoute = /^\/api\/cloud-sync\/(google-drive|dropbox)\/callback$/.test(
+    requestPath
+  );
+
+  if (isCloudSyncCallbackRoute) {
+    return true;
+  }
+
+  if (request.method && request.method !== 'GET') {
+    return getRequestOriginHeader(request) === configuredPublicOrigin;
+  }
+
+  return true;
+}
+
+function isTrustedRequest(request: IncomingMessage, requestPath: string) {
+  return isTrustedLocalRequest(request) || isTrustedPublicOriginRequest(request, requestPath);
+}
+
+function getRequestAccessErrorMessage() {
+  return getConfiguredPublicOrigin()
+    ? 'This API is only available from localhost or the configured public origin.'
+    : 'This API is only available from localhost.';
 }
 
 function getPersistedRecipeDataPath(fileName: string) {
@@ -1363,12 +1410,12 @@ async function handleRecipePreferencesRequest(
   response: ServerResponse,
   next: NextFunction
 ) {
-  if (!isTrustedLocalRequest(request)) {
-    sendJson(response, 403, { error: 'This API is only available from localhost.' });
+  const requestPath = request.url ? request.url.split('?')[0] : '';
+
+  if (!isTrustedRequest(request, requestPath)) {
+    sendJson(response, 403, { error: getRequestAccessErrorMessage() });
     return;
   }
-
-  const requestPath = request.url ? request.url.split('?')[0] : '';
 
   try {
     await cloudSyncManager?.ensureReady();

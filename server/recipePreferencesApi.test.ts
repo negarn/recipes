@@ -49,13 +49,19 @@ function createMiddlewareHandler() {
 
 async function executeRequest({
   body,
+  host = '127.0.0.1:5173',
+  origin,
   method,
   remoteAddress = '127.0.0.1',
+  xForwardedProto,
   url
 }: {
   body?: string;
+  host?: string;
+  origin?: string;
   method: string;
   remoteAddress?: string;
+  xForwardedProto?: string;
   url: string;
 }) {
   const middleware = createMiddlewareHandler();
@@ -69,7 +75,9 @@ async function executeRequest({
   Object.assign(request, {
     headers: {
       'content-type': 'application/json',
-      host: '127.0.0.1:5173'
+      host,
+      ...(origin ? { origin } : {}),
+      ...(xForwardedProto ? { 'x-forwarded-proto': xForwardedProto } : {})
     },
     method,
     socket: {
@@ -166,6 +174,25 @@ describe('recipePreferencesApi', () => {
 
     expect(response.statusCode).toBe(403);
     expect(response.body.error).toBe('This API is only available from localhost.');
+  });
+
+  it('allows requests from the configured public origin', async () => {
+    process.env.RECIPE_PUBLIC_ORIGIN = 'https://recipes.example.com';
+
+    try {
+      const response = await executeRequest({
+        body: JSON.stringify(recipePayload),
+        host: 'recipes.example.com',
+        method: 'PUT',
+        origin: 'https://recipes.example.com',
+        remoteAddress: '203.0.113.10',
+        url: recipePreferenceApiPaths.recipeCatalog
+      });
+
+      expect(response.statusCode).toBe(200);
+    } finally {
+      delete process.env.RECIPE_PUBLIC_ORIGIN;
+    }
   });
 
   it('returns 413 when request body exceeds the configured limit', async () => {

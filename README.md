@@ -62,6 +62,50 @@ npm run dev
 
 Open `http://localhost:5173`.
 
+## Docker Deploy
+
+Every push to `main` builds a Docker image and publishes it to Docker Hub.
+
+The workflow expects these GitHub secrets:
+
+- `DOCKERHUB_USERNAME`
+- `DOCKERHUB_TOKEN`
+
+Images are tagged as:
+
+- `latest`
+- `main`
+- `sha-<full commit sha>`
+
+For Docker Compose, a service can track `latest` and keep the app state on a volume:
+
+```yaml
+services:
+  recipes:
+    image: your-dockerhub-user/recipes:latest
+    ports:
+      - "4173:4173"
+    environment:
+      RECIPE_PREFERENCES_DATA_DIR: /data/recipes
+    volumes:
+      - recipes-data:/data/recipes
+    restart: unless-stopped
+
+volumes:
+  recipes-data:
+```
+
+To refresh a running deployment, pull the new image and restart the service:
+
+```bash
+docker compose pull
+docker compose up -d
+```
+
+The container already points `RECIPE_PREFERENCES_DATA_DIR` at `/data/recipes`, so mounting that path keeps recipe data between updates and container restarts.
+
+If you serve the app from an external origin, set `RECIPE_PUBLIC_ORIGIN` to that exact origin so cloud sync callbacks and browser requests line up.
+
 ## Scripts
 
 ```bash
@@ -95,7 +139,7 @@ The app stores these JSON files there:
 - `shopping-list-checks.json`
 - `shopping-list-custom-items.json`
 
-A local Vite middleware in `server/recipePreferencesApi.ts` serves `/api/*` routes and writes updates atomically. Set `RECIPE_PREFERENCES_DATA_DIR` if you want to point persistence at another directory.
+A local Vite middleware in `server/recipePreferencesApi.ts` serves `/api/*` routes and writes updates atomically. By default it only accepts localhost requests; if you set `RECIPE_PUBLIC_ORIGIN`, it will also accept requests from that single configured origin. Set `RECIPE_PREFERENCES_DATA_DIR` if you want to point persistence at another directory.
 
 ### Cloud Sync
 
@@ -143,6 +187,6 @@ Once connected, later recipe, meal-plan, bookmark, note, rating, serving, shoppi
 ## Development Notes
 
 - The app is intentionally local-first; there is no separate backend service to run.
-- The built-in API is meant for loopback/localhost use only. It rejects requests that do not come from a local browser context.
+- The built-in API is localhost-only by default. If you set `RECIPE_PUBLIC_ORIGIN`, it also accepts requests from that configured origin and uses it for cloud sync redirects.
 - If you want to reset app state, delete the JSON files in `~/.recipes/` or in the directory pointed to by `RECIPE_PREFERENCES_DATA_DIR`.
 - Storybook is available for isolated component work and UI review.
