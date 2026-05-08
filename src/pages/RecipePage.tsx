@@ -5,7 +5,7 @@ import {
   useState,
   type FormEvent
 } from 'react';
-import { Navigate, useLocation, useParams } from 'react-router-dom';
+import { Navigate, useLocation, useNavigate, useParams } from 'react-router-dom';
 import { RecipeBookmarkComposerDialog } from '../components/RecipeBookmarkComposerDialog';
 import { MealPlanPickerDialog } from '../components/MealPlanPickerDialog';
 import { RecipeIngredientsCard } from '../components/RecipeIngredientsCard';
@@ -69,6 +69,7 @@ function resolveMealPlanEntry(
 
 export function RecipePage() {
   const { getRecipeById, hasLoadedRecipes } = useRecipeCatalogContext();
+  const navigate = useNavigate();
   const {
     handleMealPlanRecipeAdd: onMealPlanRecipeAdd,
     handleMealPlanRecipeMarkCooked: onMealPlanRecipeMarkCooked,
@@ -321,6 +322,14 @@ export function RecipePage() {
     });
   }
 
+  function handleRecipeEdit() {
+    navigate(appRoutePaths.home, {
+      state: {
+        editRecipeId: currentRecipe.id
+      }
+    });
+  }
+
   return (
     <div className={pageShellClass}>
       <main className="grid gap-4 min-[720px]:gap-6">
@@ -330,6 +339,7 @@ export function RecipePage() {
           isAddToMealPlanDisabled={addToMealPlan.action.isPending}
           isRatingDisabled={ratingAction.isPending}
           onAddToMealPlanOpen={openMealPlanDialog}
+          onEdit={handleRecipeEdit}
           onRatingChange={handleRatingChange}
           ratingError={ratingAction.error}
           recipe={recipe}

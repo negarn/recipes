@@ -55,3 +55,7 @@ export type RecipePageLocationState = {
   backLink?: RecipePageBackLink;
   mealPlanEntry?: RecipePageMealPlanEntry;
 };
+
+export type HomePageLocationState = {
+  editRecipeId?: string;
+};

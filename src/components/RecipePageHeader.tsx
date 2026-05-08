@@ -1,9 +1,9 @@
+import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { ChevronIcon } from './ChevronIcon';
 import { EditableRecipeRating } from './EditableRecipeRating';
-import { IconActionButton } from './IconActionButton';
+import { HomePageRecipeCardMenu } from './HomePageRecipeCardMenu';
 import { InlineMessage } from './InlineMessage';
-import { PlusIcon } from './PlusIcon';
 import { RecipeMetadataChips } from './RecipeSummary';
 import { formatRecipeTitle } from '../helpers/recipeMetadata';
 import {
@@ -30,6 +30,7 @@ export function RecipePageHeader({
   isAddToMealPlanDisabled,
   isRatingDisabled,
   onAddToMealPlanOpen,
+  onEdit,
   onRatingChange,
   ratingError,
   recipe
@@ -39,14 +40,51 @@ export function RecipePageHeader({
   isAddToMealPlanDisabled?: boolean;
   isRatingDisabled?: boolean;
   onAddToMealPlanOpen: () => void;
+  onEdit: () => void;
   onRatingChange: (nextRating: number) => void;
   ratingError?: string | null;
   recipe: Recipe;
 }) {
   const formattedRecipeTitle = formatRecipeTitle(recipe.title);
+  const [isRecipeMenuOpen, setIsRecipeMenuOpen] = useState(false);
+
+  useEffect(() => {
+    setIsRecipeMenuOpen(false);
+  }, [recipe.id]);
+
+  useEffect(() => {
+    if (!isRecipeMenuOpen) {
+      return undefined;
+    }
+
+    function handlePointerDown(event: PointerEvent) {
+      if (
+        event.target instanceof Element &&
+        event.target.closest('[data-recipe-card-menu="true"]')
+      ) {
+        return;
+      }
+
+      setIsRecipeMenuOpen(false);
+    }
+
+    function handleKeyDown(event: KeyboardEvent) {
+      if (event.key === 'Escape') {
+        setIsRecipeMenuOpen(false);
+      }
+    }
+
+    document.addEventListener('pointerdown', handlePointerDown);
+    window.addEventListener('keydown', handleKeyDown);
+
+    return () => {
+      document.removeEventListener('pointerdown', handlePointerDown);
+      window.removeEventListener('keydown', handleKeyDown);
+    };
+  }, [isRecipeMenuOpen]);
 
   return (
-    <section className={cn(contentPanelClass, 'pb-0 min-[720px]:pb-0')}>
+    <section className={cn(contentPanelClass, 'overflow-visible pb-0 min-[720px]:pb-0')}>
       <div className="grid gap-0">
         <div className="-mx-[1.1rem] border-b border-app-field-border px-[1.1rem] pb-4 min-[720px]:-mx-6 min-[720px]:px-6 min-[720px]:pb-5">
           <div className="flex min-w-0 items-center gap-2 min-[720px]:gap-3">
@@ -66,6 +104,23 @@ export function RecipePageHeader({
             >
               {formattedRecipeTitle}
             </h1>
+            <HomePageRecipeCardMenu
+              buttonClassName={recipeBackLinkClass}
+              buttonSurfaceClassName="border-app-line-strong bg-app-surface-tint text-app-brand-strong enabled:hover:bg-app-button-tint enabled:focus-visible:bg-app-button-tint"
+              className="static z-30 shrink-0"
+              isAddToMealPlanDisabled={isAddToMealPlanDisabled}
+              isOpen={isRecipeMenuOpen}
+              onAddToMealPlan={onAddToMealPlanOpen}
+              onClose={() => {
+                setIsRecipeMenuOpen(false);
+              }}
+              onEdit={onEdit}
+              onToggle={() => {
+                setIsRecipeMenuOpen((currentValue) => !currentValue);
+              }}
+              preferredPanelAlignment="start"
+              recipe={recipe}
+            />
           </div>
         </div>
 
@@ -79,27 +134,11 @@ export function RecipePageHeader({
               timeLabelClassName="text-[0.7rem] tracking-[0.1em] min-[720px]:text-[0.74rem] min-[720px]:tracking-[0.16em]"
               timePosition="end"
             />
-            <div className="flex min-w-0 items-center gap-2.5">
-              <div className="min-w-0 flex-1">
-                <EditableRecipeRating
-                  rating={recipe.rating}
-                  isDisabled={isRatingDisabled}
-                  onChange={onRatingChange}
-                />
-              </div>
-              <IconActionButton
-                className={cn(
-                  chipClass,
-                  'size-[2.6rem] shrink-0 p-0 text-app-brand-strong'
-                )}
-                onClick={onAddToMealPlanOpen}
-                disabled={isAddToMealPlanDisabled}
-                label="Add to meal plan"
-                title="Add to meal plan"
-              >
-                <PlusIcon className="size-[1.55rem] shrink-0 scale-[1.15]" strokeWidth={1.25} />
-              </IconActionButton>
-            </div>
+            <EditableRecipeRating
+              rating={recipe.rating}
+              isDisabled={isRatingDisabled}
+              onChange={onRatingChange}
+            />
           </div>
 
           <div className="hidden min-w-0 min-[720px]:flex min-[720px]:flex-nowrap min-[720px]:items-center min-[720px]:justify-end min-[720px]:gap-3">
@@ -116,18 +155,6 @@ export function RecipePageHeader({
               isDisabled={isRatingDisabled}
               onChange={onRatingChange}
             />
-            <IconActionButton
-              className={cn(
-                chipClass,
-                'size-[2.6rem] shrink-0 p-0 text-app-brand-strong'
-              )}
-              onClick={onAddToMealPlanOpen}
-              disabled={isAddToMealPlanDisabled}
-              label="Add to meal plan"
-              title="Add to meal plan"
-            >
-              <PlusIcon className="size-[1.55rem] shrink-0 scale-[1.15]" strokeWidth={1.25} />
-            </IconActionButton>
           </div>
 
           {ratingError ? (

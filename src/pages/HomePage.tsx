@@ -34,6 +34,7 @@ import {
   pageTitleClass
 } from '../helpers/uiClasses';
 import { useAsyncAction } from '../hooks/useAsyncAction';
+import type { HomePageLocationState } from '../types/app';
 import type { Recipe } from '../types/recipe';
 
 function createIdSlug(value: string) {
@@ -96,6 +97,18 @@ function createRecipeFromPayloadWithUniqueId(payload: RecipeCreatePayload, recip
   return createRecipeFromPayload(payload, createUniqueRecipeId(payload.title, recipeIds));
 }
 
+function readHomePageLocationState(value: unknown) {
+  if (!value || typeof value !== 'object') {
+    return null;
+  }
+
+  const { editRecipeId } = value as Partial<HomePageLocationState>;
+
+  return typeof editRecipeId === 'string' && editRecipeId.trim()
+    ? { editRecipeId }
+    : null;
+}
+
 export function HomePage() {
   const navigate = useNavigate();
   const location = useLocation();
@@ -145,6 +158,7 @@ export function HomePage() {
   });
   const activeMealPlanRecipeId = addToMealPlan.selectedRecipe?.recipeId ?? null;
   const recipePageState = createHomeRecipePageState(`${location.pathname}${location.search}`);
+  const homePageLocationState = readHomePageLocationState(location.state);
   const isRecipeFormOpen = recipeFormState !== null;
   const recipeFormInitialValues = recipeFormState
     ? createRecipeCreateFormInitialValues(recipeFormState.recipe ?? undefined, {
@@ -258,6 +272,32 @@ export function HomePage() {
       previousPageRef.current = currentPage;
     }
   }, [currentPage]);
+
+  useEffect(() => {
+    if (!hasLoadedRecipes || !homePageLocationState?.editRecipeId) {
+      return;
+    }
+
+    const recipeToEdit = recipes.find(
+      (recipe) => recipe.id === homePageLocationState.editRecipeId
+    );
+
+    if (recipeToEdit) {
+      openRecipeForm({ mode: 'edit', recipe: recipeToEdit });
+    }
+
+    navigate(`${location.pathname}${location.search}`, {
+      replace: true,
+      state: null
+    });
+  }, [
+    hasLoadedRecipes,
+    homePageLocationState?.editRecipeId,
+    location.pathname,
+    location.search,
+    navigate,
+    recipes
+  ]);
 
   return (
     <TabbedPanelLayout backgroundVariant="default">
