@@ -48,6 +48,7 @@ import {
   ensurePrivateJsonStorageFile,
   writePrivateJsonFile
 } from './privateFilesystem';
+import { getRequestPath } from './requestPath';
 import type {
   DatedRecipeMap,
   MealPlanMap,
@@ -1410,7 +1411,7 @@ async function handleRecipePreferencesRequest(
   response: ServerResponse,
   next: NextFunction
 ) {
-  const requestPath = request.url ? request.url.split('?')[0] : '';
+  const requestPath = getRequestPath(request);
 
   if (!isTrustedRequest(request, requestPath)) {
     sendJson(response, 403, { error: getRequestAccessErrorMessage() });

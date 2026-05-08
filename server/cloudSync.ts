@@ -22,6 +22,7 @@ import {
   ensurePrivateJsonStorageFile,
   writePrivateJsonFile
 } from './privateFilesystem';
+import { getRequestPath } from './requestPath';
 import type { IncomingMessage, ServerResponse } from 'node:http';
 
 type CloudSyncProviderCredentials = {
@@ -1405,7 +1406,7 @@ export function createCloudSyncManager(options: CloudSyncManagerOptions) {
     response: ServerResponse,
     next: (error?: Error) => void
   ): Promise<boolean> {
-    const requestPath = request.url ? request.url.split('?')[0] : '';
+    const requestPath = getRequestPath(request);
 
     if (request.method === 'GET' && requestPath === '/api/cloud-sync') {
       sendJson(response, 200, { cloudSync: await getStatus() });

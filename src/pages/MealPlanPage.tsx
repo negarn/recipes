@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import type { ReactNode } from 'react';
 import { useLocation } from 'react-router-dom';
 import { DeleteConfirmationDialog } from '../components/DeleteConfirmationDialog';
 import { MealPlanPickerDialog } from '../components/MealPlanPickerDialog';
@@ -28,6 +29,36 @@ type PendingMealPlanRemoval = {
   entryIndex: number;
   recipeTitle: string;
 } | null;
+
+type CookedHistoryMonthLabelParts = {
+  monthText: string | null;
+  yearText: string | null;
+};
+
+function getCookedHistoryMonthLabelParts(
+  monthLabel: string | null
+): CookedHistoryMonthLabelParts {
+  if (!monthLabel) {
+    return {
+      monthText: null,
+      yearText: null
+    };
+  }
+
+  const separatorIndex = monthLabel.lastIndexOf(' ');
+
+  if (separatorIndex <= 0) {
+    return {
+      monthText: monthLabel,
+      yearText: null
+    };
+  }
+
+  return {
+    monthText: monthLabel.slice(0, separatorIndex),
+    yearText: monthLabel.slice(separatorIndex + 1)
+  };
+}
 
 export function MealPlanPage() {
   const location = useLocation();
@@ -66,15 +97,8 @@ export function MealPlanPage() {
     onMealPlanRecipeRemove: handleMealPlanRecipeRemove
   });
   const cookedHistoryBackLinkPath = `${appRoutePaths.mealPlan}${location.search}`;
-  const cookedHistoryMonthLabelSeparatorIndex = cookedHistoryMonthLabel?.lastIndexOf(' ') ?? -1;
-  const cookedHistoryMonthText =
-    cookedHistoryMonthLabelSeparatorIndex > 0
-      ? cookedHistoryMonthLabel?.slice(0, cookedHistoryMonthLabelSeparatorIndex)
-      : cookedHistoryMonthLabel;
-  const cookedHistoryYearText =
-    cookedHistoryMonthLabelSeparatorIndex > 0
-      ? cookedHistoryMonthLabel?.slice(cookedHistoryMonthLabelSeparatorIndex + 1)
-      : null;
+  const { monthText: cookedHistoryMonthText, yearText: cookedHistoryYearText } =
+    getCookedHistoryMonthLabelParts(cookedHistoryMonthLabel);
   const emptyPlanState = (
     <EmptyStateCard
       title="No meals planned yet"
@@ -103,6 +127,89 @@ export function MealPlanPage() {
     }
   }
 
+  let mealPlanContent: ReactNode;
+
+  if (!hasLoadedRecipes) {
+    mealPlanContent = <MealPlanPageSkeleton tab={activeTab} />;
+  } else if (activeTab === 'plan') {
+    mealPlanContent = mealPlanDays.length
+      ? mealPlanDays.map(({ date, recipes }) => (
+          <MealPlanRecipeDaySection
+            key={date}
+            date={date}
+            recipes={recipes}
+            tone="plan"
+            createRecipeState={({ entryIndex, recipe }) =>
+              createMealPlanRecipePageState(date, entryIndex, recipe.id)
+            }
+            renderActions={({ entryIndex, recipe }, formattedRecipeTitle) => (
+              <MealPlanRecipeRowActions
+                formattedRecipeTitle={formattedRecipeTitle}
+                isPending={isMealPlanUpdatePending}
+                onMarkAsCooked={() => {
+                  void markPlannedMealAsCooked(date, entryIndex, recipe.id);
+                }}
+                onChangeDate={() => {
+                  openMealPlanDateDialog(
+                    date,
+                    entryIndex,
+                    formattedRecipeTitle
+                  );
+                }}
+                onRemove={() => {
+                  clearMealPlanPageError();
+                  setPendingMealPlanRemoval({
+                    currentDate: date,
+                    entryIndex,
+                    recipeTitle: formattedRecipeTitle
+                  });
+                }}
+              />
+            )}
+          />
+        ))
+      : emptyPlanState;
+  } else if (pagedCookedMealDays.length) {
+    mealPlanContent = (
+      <div className="grid gap-4 pb-12 min-[720px]:pb-16">
+        {pagedCookedMealDays.map(({ date, recipes }) => (
+          <MealPlanRecipeDaySection
+            key={date}
+            date={date}
+            recipes={recipes}
+            tone="plan"
+            createRecipeState={() =>
+              createCookedHistoryRecipePageState(cookedHistoryBackLinkPath)
+            }
+          />
+        ))}
+
+        {cookedHistoryMonthLabel ? (
+          <PageNavigationControls
+            ariaLabel="Cooked history pages"
+            onPrevious={() => {
+              updateCookedHistoryPage(cookedHistoryPage - 1);
+            }}
+            isPreviousDisabled={cookedHistoryPage === 1}
+            onNext={() => {
+              updateCookedHistoryPage(cookedHistoryPage + 1);
+            }}
+            isNextDisabled={cookedHistoryPage === totalCookedHistoryPages}
+          >
+            <p className="m-0 text-[0.92rem] font-semibold text-app-muted">
+              {cookedHistoryMonthText ? (
+                <strong className="text-app-ink">{cookedHistoryMonthText}</strong>
+              ) : null}
+              {cookedHistoryYearText ? ` ${cookedHistoryYearText}` : null}
+            </p>
+          </PageNavigationControls>
+        ) : null}
+      </div>
+    );
+  } else {
+    mealPlanContent = emptyHistoryState;
+  }
+
   return (
     <TabbedPanelLayout backgroundVariant="default">
       <TabbedPageHeader title={activeTab === 'history' ? 'Cooked history' : 'Meal plan'} />
@@ -113,88 +220,7 @@ export function MealPlanPage() {
         </ErrorPillMessage>
       ) : null}
 
-      <div className="grid min-w-0 gap-4">
-        {!hasLoadedRecipes ? (
-          <MealPlanPageSkeleton tab={activeTab} />
-        ) : activeTab === 'plan' ? (
-          mealPlanDays.length ? (
-            mealPlanDays.map(({ date, recipes }) => (
-              <MealPlanRecipeDaySection
-                key={date}
-                date={date}
-                recipes={recipes}
-                tone="plan"
-                createRecipeState={({ entryIndex, recipe }) =>
-                  createMealPlanRecipePageState(date, entryIndex, recipe.id)
-                }
-                renderActions={({ entryIndex, recipe }, formattedRecipeTitle) => (
-                  <MealPlanRecipeRowActions
-                    formattedRecipeTitle={formattedRecipeTitle}
-                    isPending={isMealPlanUpdatePending}
-                    onMarkAsCooked={() => {
-                      void markPlannedMealAsCooked(date, entryIndex, recipe.id);
-                    }}
-                    onChangeDate={() => {
-                      openMealPlanDateDialog(
-                        date,
-                        entryIndex,
-                        formattedRecipeTitle
-                      );
-                    }}
-                    onRemove={() => {
-                      clearMealPlanPageError();
-                      setPendingMealPlanRemoval({
-                        currentDate: date,
-                        entryIndex,
-                        recipeTitle: formattedRecipeTitle
-                      });
-                    }}
-                  />
-                )}
-              />
-            ))
-          ) : (
-            emptyPlanState
-          )
-        ) : pagedCookedMealDays.length ? (
-          <div className="grid gap-4 pb-12 min-[720px]:pb-16">
-            {pagedCookedMealDays.map(({ date, recipes }) => (
-              <MealPlanRecipeDaySection
-                key={date}
-                date={date}
-                recipes={recipes}
-                tone="plan"
-                createRecipeState={() =>
-                  createCookedHistoryRecipePageState(cookedHistoryBackLinkPath)
-                }
-              />
-            ))}
-
-            {cookedHistoryMonthLabel ? (
-              <PageNavigationControls
-                ariaLabel="Cooked history pages"
-                onPrevious={() => {
-                  updateCookedHistoryPage(cookedHistoryPage - 1);
-                }}
-                isPreviousDisabled={cookedHistoryPage === 1}
-                onNext={() => {
-                  updateCookedHistoryPage(cookedHistoryPage + 1);
-                }}
-                isNextDisabled={cookedHistoryPage === totalCookedHistoryPages}
-              >
-                <p className="m-0 text-[0.92rem] font-semibold text-app-muted">
-                  {cookedHistoryMonthText ? (
-                    <strong className="text-app-ink">{cookedHistoryMonthText}</strong>
-                  ) : null}
-                  {cookedHistoryYearText ? ` ${cookedHistoryYearText}` : null}
-                </p>
-              </PageNavigationControls>
-            ) : null}
-          </div>
-        ) : (
-          emptyHistoryState
-        )}
-      </div>
+      <div className="grid min-w-0 gap-4">{mealPlanContent}</div>
 
       {activeMealPlanEntry && dialogProps ? <MealPlanPickerDialog {...dialogProps} /> : null}
       {pendingMealPlanRemoval ? (
