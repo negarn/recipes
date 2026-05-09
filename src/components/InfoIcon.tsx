@@ -19,7 +19,7 @@ export function InfoIcon({
         className
       )}
     >
-      <circle cx="12" cy="12" r="11.225" strokeWidth={strokeWidth} {...roundedIconStrokeProps} />
+      <circle cx="12" cy="12" r="10.85" strokeWidth={strokeWidth} {...roundedIconStrokeProps} />
       <path
         d="M12 9.9v6.2"
         strokeWidth={strokeWidth}

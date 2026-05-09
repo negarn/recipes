@@ -63,7 +63,7 @@ export function ShoppingListItemRow({
       )}
       onClick={handleRowClick}
     >
-      <div className="grid min-w-0 grid-cols-[auto_minmax(0,1fr)_auto] items-start gap-x-3 gap-y-0">
+      <div className="grid min-w-0 grid-cols-[auto_minmax(0,1fr)_auto] items-start gap-x-3">
         <IconActionButton
           className={cn(
             shoppingListCheckButtonClass,
@@ -89,22 +89,34 @@ export function ShoppingListItemRow({
           />
         </IconActionButton>
 
-        <button
-          type="button"
-          className={cn(
-            'col-start-2 row-start-1 w-fit max-w-full cursor-pointer rounded-[8px] bg-transparent p-0 text-left text-[1.02rem] leading-[1.15] font-semibold text-app-ink transition hover:text-app-brand-strong focus-visible:shadow-[0_0_0_4px_var(--color-app-focus-ring)] focus-visible:outline-none disabled:cursor-not-allowed disabled:opacity-70',
-            !item.isChecked && 'focus-visible:text-app-brand-strong',
-            item.isChecked && 'text-app-muted line-through'
-          )}
-          disabled={isPending}
-          aria-label={
-            item.isChecked
-              ? `Mark ${item.ingredientName} as not bought`
-              : `Mark ${item.ingredientName} as bought`
-          }
-        >
-          {item.ingredientName}
-        </button>
+        <div className="col-start-2 row-start-1 grid min-w-0">
+          <button
+            type="button"
+            className={cn(
+              'w-fit max-w-full cursor-pointer rounded-[8px] bg-transparent p-0 text-left text-[1.02rem] leading-[1.2] font-semibold text-app-ink transition hover:text-app-brand-strong focus-visible:shadow-[0_0_0_4px_var(--color-app-focus-ring)] focus-visible:outline-none disabled:cursor-not-allowed disabled:opacity-70',
+              !item.isChecked && 'focus-visible:text-app-brand-strong',
+              item.isChecked && 'text-app-muted line-through'
+            )}
+            disabled={isPending}
+            aria-label={
+              item.isChecked
+                ? `Mark ${item.ingredientName} as not bought`
+                : `Mark ${item.ingredientName} as bought`
+            }
+          >
+            {item.ingredientName}
+          </button>
+
+          <strong
+            className={cn(
+              'block text-[0.94rem] leading-[1.15] font-medium text-app-brand-strong',
+              item.isChecked && 'text-app-muted-soft line-through'
+            )}
+            style={{ marginTop: '0.26rem' }}
+          >
+            {item.amountLabel}
+          </strong>
+        </div>
 
         {item.sources.length ? (
           <SourceDisclosurePopover
@@ -162,14 +174,6 @@ export function ShoppingListItemRow({
           </div>
         ) : null}
 
-        <strong
-          className={cn(
-            'col-start-2 row-start-2 -mt-[0.24rem] text-[0.94rem] leading-[1.15] font-medium text-app-brand-strong',
-            item.isChecked && 'text-app-muted-soft line-through'
-          )}
-        >
-          {item.amountLabel}
-        </strong>
       </div>
     </article>
   );
