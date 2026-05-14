@@ -14,7 +14,7 @@ export function InfoIcon({
   return (
     <IconFrame
       className={cn(
-        'text-app-muted-soft/70 transition group-hover/source:text-app-brand-strong group-focus-within/source:text-app-brand-strong',
+        'overflow-visible text-app-muted-soft/70 transition group-hover/source:text-app-brand-strong group-focus-within/source:text-app-brand-strong',
         isActive && 'text-app-brand-strong',
         className
       )}
