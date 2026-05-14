@@ -49,6 +49,14 @@ const recipeWithNutrition: Recipe = {
 };
 
 describe('createRecipeCreateFormInitialValues', () => {
+  it('uses the recipe source serving count when editing', () => {
+    const initialValues = createRecipeCreateFormInitialValues(recipeWithNutrition, {
+      note: 'Scale this on the recipe page.'
+    });
+
+    expect(initialValues.servings).toBe('2');
+  });
+
   it('prefills nutrition using the per-serving values shown on the recipe page', () => {
     const initialValues = createRecipeCreateFormInitialValues(recipeWithNutrition);
 

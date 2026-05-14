@@ -116,11 +116,9 @@ function createRecipeNutritionDraft(recipeNutrition?: RecipeNutrition) {
 export function createRecipeCreateFormInitialValues(
   recipe?: Recipe,
   {
-    note = '',
-    servings
+    note = ''
   }: {
     note?: string;
-    servings?: number;
   } = {}
 ): RecipeCreateFormInitialValues {
   if (!recipe) {
@@ -142,7 +140,7 @@ export function createRecipeCreateFormInitialValues(
     nutritionDraft: createRecipeNutritionDraft(recipe.nutrition),
     prepSteps: getRecipeSectionSteps(recipe, 'prep').join('\n'),
     rating: recipe.rating,
-    servings: `${servings ?? recipe.defaultServings}`,
+    servings: `${recipe.defaultServings}`,
     title: recipe.title,
     totalTime: recipe.totalTime
   };

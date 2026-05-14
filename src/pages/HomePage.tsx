@@ -117,8 +117,7 @@ export function HomePage() {
   const {
     handleRecipeNoteChange,
     handleRecipeServingChange,
-    recipeNotes,
-    recipeServings
+    recipeNotes
   } = useRecipePreferencesContext();
   const {
     hasResolvedRecipeRatings,
@@ -165,10 +164,6 @@ export function HomePage() {
         note:
           recipeFormState.recipe !== null
             ? recipeNotes[recipeFormState.recipe.id] ?? ''
-            : '',
-        servings:
-          recipeFormState.recipe !== null
-            ? recipeServings[recipeFormState.recipe.id] ?? recipeFormState.recipe.defaultServings
             : undefined
       })
     : createRecipeCreateFormInitialValues();
@@ -224,7 +219,6 @@ export function HomePage() {
         await handleRecipeAdd(nextRecipe);
         if (recipeFormState?.mode === 'edit') {
           await handleRecipeRatingChange(nextRecipe.id, payload.rating ?? null);
-          await handleRecipeServingChange(nextRecipe.id, payload.servings);
           await handleRecipeNoteChange(nextRecipe.id, payload.note);
         } else {
           await handleRecipeServingChange(nextRecipe.id, payload.servings);
