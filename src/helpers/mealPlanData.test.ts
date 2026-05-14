@@ -1,6 +1,7 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import {
   countKnownDatedRecipes,
+  getEarliestAllowedMealPlanDateString,
   formatDateAsLocalDateString,
   isAllowedMealPlanDate,
   isValidMealPlanDate,
@@ -27,9 +28,20 @@ describe('mealPlanData', () => {
     vi.useFakeTimers();
     vi.setSystemTime(new Date(2024, 0, 15, 12));
 
-    expect(isAllowedMealPlanDate('2024-01-14')).toBe(false);
+    expect(isAllowedMealPlanDate('2024-01-13')).toBe(false);
+    expect(isAllowedMealPlanDate('2024-01-14')).toBe(true);
     expect(isAllowedMealPlanDate('2024-01-15')).toBe(true);
     expect(isAllowedMealPlanDate('2024-01-16')).toBe(true);
+  });
+
+  it('allows the previous UTC date for clients behind the server date', () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date('2026-05-14T02:00:00.000Z'));
+
+    expect(getEarliestAllowedMealPlanDateString()).toBe('2026-05-13');
+    expect(isAllowedMealPlanDate('2026-05-12')).toBe(false);
+    expect(isAllowedMealPlanDate('2026-05-13')).toBe(true);
+    expect(isAllowedMealPlanDate('2026-05-14')).toBe(true);
   });
 
   it('counts known dated recipes across all meal plan dates', () => {

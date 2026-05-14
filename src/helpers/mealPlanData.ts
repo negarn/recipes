@@ -20,6 +20,20 @@ export function getTodayMealPlanDateString() {
   return formatDateAsLocalDateString(new Date());
 }
 
+export function getEarliestAllowedMealPlanDateString(date = new Date()) {
+  const utcDate = new Date(Date.UTC(
+    date.getUTCFullYear(),
+    date.getUTCMonth(),
+    date.getUTCDate() - 1
+  ));
+
+  return [
+    utcDate.getUTCFullYear(),
+    padDatePart(utcDate.getUTCMonth() + 1),
+    padDatePart(utcDate.getUTCDate())
+  ].join('-');
+}
+
 export function countKnownDatedRecipes(
   entries: DatedRecipeMap,
   isKnownRecipeId: (recipeId: string) => boolean
@@ -51,7 +65,7 @@ export function isValidMealPlanDate(value: unknown): value is string {
 }
 
 export function isAllowedMealPlanDate(value: unknown): value is string {
-  return isValidMealPlanDate(value) && value >= getTodayMealPlanDateString();
+  return isValidMealPlanDate(value) && value >= getEarliestAllowedMealPlanDateString();
 }
 
 function normalizeDatedRecipeMap<T extends DatedRecipeMap>(value: unknown) {
