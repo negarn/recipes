@@ -216,7 +216,7 @@ export function RecipeListRow({
             recipe={recipe}
           />
           {actions ? (
-            <div className="relative z-20 flex w-full flex-wrap items-center justify-end gap-1.5 pt-0.5 min-[720px]:w-auto min-[720px]:shrink-0 min-[720px]:flex-nowrap min-[720px]:gap-2 min-[720px]:pt-0">
+            <div className="pointer-events-none relative z-20 flex w-full flex-wrap items-center justify-end gap-1.5 pt-0.5 [&>*]:pointer-events-auto min-[720px]:w-auto min-[720px]:shrink-0 min-[720px]:flex-nowrap min-[720px]:gap-2 min-[720px]:pt-0">
               {actions}
             </div>
           ) : null}

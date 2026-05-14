@@ -7,6 +7,7 @@ type ContentPanelSectionProps = {
   children: ReactNode;
   className?: string;
   headerClassName?: string;
+  headerSpacingClassName?: string;
   title: ReactNode;
   titleWrapClassName?: string;
 };
@@ -17,12 +18,13 @@ export function ContentPanelSection({
   children,
   className,
   headerClassName,
+  headerSpacingClassName = 'mb-5',
   title,
   titleWrapClassName
 }: ContentPanelSectionProps) {
   return (
     <Element className={cn(contentPanelClass, className)}>
-      <div className={cn('mb-5', headerClassName)}>
+      <div className={cn(headerSpacingClassName, headerClassName)}>
         <div className={cn('min-w-0', titleWrapClassName)}>
           <h2 className={sectionTitleClass}>{title}</h2>
         </div>
