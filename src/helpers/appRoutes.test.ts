@@ -9,8 +9,8 @@ import {
 
 describe('appRoutes', () => {
   it('encodes recipe ids when building recipe routes', () => {
-    expect(getRecipeRoutePath('roasted/garlic & tomato')).toBe(
-      '/recipes/roasted%2Fgarlic%20%26%20tomato'
+    expect(getRecipeRoutePath('sample/recipe & encoded')).toBe(
+      '/recipes/sample%2Frecipe%20%26%20encoded'
     );
   });
 
@@ -30,7 +30,7 @@ describe('appRoutes', () => {
 
     expect(
       getActiveNavigationRouteId({
-        pathname: '/recipes/chili',
+        pathname: '/recipes/sample-recipe',
         search: ''
       })
     ).toBe('home');

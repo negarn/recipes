@@ -12,8 +12,8 @@ const baseRecipe: Recipe = {
         type: 'scalable',
         unit: { singular: 'tsp' }
       },
-      id: 'salt',
-      name: 'salt'
+      id: 'sample-powder',
+      name: 'sample powder'
     }
   ],
   isVegan: false,
@@ -30,7 +30,7 @@ const baseRecipe: Recipe = {
   totalTime: '10 min'
 };
 
-const redPepperRecipe: Recipe = {
+const countIngredientRecipe: Recipe = {
   ...baseRecipe,
   ingredients: [
     {
@@ -39,13 +39,13 @@ const redPepperRecipe: Recipe = {
         type: 'scalable',
         unit: { singular: 'x' }
       },
-      id: 'red-bell-pepper',
-      name: 'Red bell pepper'
+      id: 'sample-item',
+      name: 'Sample item'
     }
   ]
 };
 
-const cucumberRecipe: Recipe = {
+const fractionalItemRecipe: Recipe = {
   ...baseRecipe,
   ingredients: [
     {
@@ -54,13 +54,13 @@ const cucumberRecipe: Recipe = {
         type: 'scalable',
         unit: { singular: 'x' }
       },
-      id: 'cucumber',
-      name: 'Cucumber'
+      id: 'fractional-item',
+      name: 'Fractional item'
     }
   ]
 };
 
-const stockCubeRecipe: Recipe = {
+const fractionalArticleRecipe: Recipe = {
   ...baseRecipe,
   ingredients: [
     {
@@ -69,13 +69,13 @@ const stockCubeRecipe: Recipe = {
         type: 'scalable',
         unit: { singular: 'x' }
       },
-      id: 'stock-cube',
-      name: 'Stock cube'
+      id: 'sample-cube',
+      name: 'Sample cube'
     }
   ]
 };
 
-const gingerRecipe: Recipe = {
+const portionIngredientRecipe: Recipe = {
   ...baseRecipe,
   ingredients: [
     {
@@ -84,13 +84,13 @@ const gingerRecipe: Recipe = {
         type: 'scalable',
         unit: { singular: 'g', separator: 'none' }
       },
-      id: 'fresh-ginger',
-      name: 'Fresh ginger'
+      id: 'sample-root',
+      name: 'Sample root'
     }
   ]
 };
 
-const chickenThighRecipe: Recipe = {
+const commaQualifiedRecipe: Recipe = {
   ...baseRecipe,
   ingredients: [
     {
@@ -99,13 +99,13 @@ const chickenThighRecipe: Recipe = {
         type: 'scalable',
         unit: { singular: 'x' }
       },
-      id: 'chicken-thighs-boneless-skinless',
-      name: 'Chicken thigh, boneless, skinless'
+      id: 'sample-pieces-trimmed-prepared',
+      name: 'Sample piece, trimmed, prepared'
     }
   ]
 };
 
-const cannedOlivesRecipe: Recipe = {
+const cannedIngredientRecipe: Recipe = {
   ...baseRecipe,
   ingredients: [
     {
@@ -114,13 +114,13 @@ const cannedOlivesRecipe: Recipe = {
         type: 'scalable',
         unit: { singular: 'can', plural: 'cans' }
       },
-      id: 'sliced-black-olives',
-      name: 'Sliced black olive'
+      id: 'sample-slices',
+      name: 'Sample slice'
     }
   ]
 };
 
-const naanRecipe: Recipe = {
+const slashAliasRecipe: Recipe = {
   ...baseRecipe,
   ingredients: [
     {
@@ -129,23 +129,23 @@ const naanRecipe: Recipe = {
         type: 'scalable',
         unit: { singular: 'x' }
       },
-      id: 'plain-naan-sangak',
-      name: 'Plain naan / sangak'
+      id: 'sample-flatbread-crispbread',
+      name: 'Sample flatbread / crispbread'
     }
   ]
 };
 
 describe('renderMethodStepText', () => {
   it('scales valid literal fractions when servings change', () => {
-    const step = 'Stir in 1/2 tsp salt.';
+    const step = 'Stir in 1/2 tsp sample powder.';
 
     const rendered = renderMethodStepText(step, baseRecipe, 4);
 
-    expect(rendered).toBe('Stir in 1 tsp salt.');
+    expect(rendered).toBe('Stir in 1 tsp sample powder.');
   });
 
   it('leaves invalid literal fractions unchanged', () => {
-    const step = 'Stir in 1/0 tsp salt.';
+    const step = 'Stir in 1/0 tsp sample powder.';
 
     const rendered = renderMethodStepText(step, baseRecipe, 4);
 
@@ -153,53 +153,53 @@ describe('renderMethodStepText', () => {
   });
 
   it('scales literal count amounts when ingredient descriptors are included', () => {
-    const step = 'De-seed 1 red pepper, then dice.';
+    const step = 'Prepare 1 sample item, then dice.';
 
-    const rendered = renderMethodStepText(step, redPepperRecipe, 4);
+    const rendered = renderMethodStepText(step, countIngredientRecipe, 4);
 
-    expect(rendered).toBe('De-seed 2 red peppers, then dice.');
+    expect(rendered).toBe('Prepare 2 sample items, then dice.');
   });
 
   it('scales fractional article amounts without leaving "of a" phrasing', () => {
-    const step = 'Coarsely grate 1/2 of a cucumber';
+    const step = 'Prepare 1/2 of a fractional item';
 
-    const rendered = renderMethodStepText(step, cucumberRecipe, 4);
+    const rendered = renderMethodStepText(step, fractionalItemRecipe, 4);
 
-    expect(rendered).toBe('Coarsely grate 1 cucumber');
+    expect(rendered).toBe('Prepare 1 fractional item');
   });
 
   it('scales fractional article amounts without leaving repeated article wording', () => {
     const step =
-      'Add 1/2 a stock cube and 200g of orzo to the pan and stir to coat the orzo in the mix.';
+      'Add 1/2 a sample cube and 200g of sample grains to the pan and stir to coat the sample grains in the mix.';
 
-    const rendered = renderMethodStepText(step, stockCubeRecipe, 4);
+    const rendered = renderMethodStepText(step, fractionalArticleRecipe, 4);
 
     expect(rendered).toBe(
-      'Add 1 stock cube and 400g of orzo to the pan and stir to coat the orzo in the mix.'
+      'Add 1 sample cube and 400g of sample grains to the pan and stir to coat the sample grains in the mix.'
     );
   });
 
   it('scales ingredient portions when servings change', () => {
-    const step = 'Add {{ingredient-portion|fresh-ginger|1/4}} of the reserved ginger.';
+    const step = 'Add {{ingredient-portion|sample-root|1/4}} of the reserved sample root.';
 
-    const rendered = renderMethodStepText(step, gingerRecipe, 4);
+    const rendered = renderMethodStepText(step, portionIngredientRecipe, 4);
 
-    expect(rendered).toBe('Add 15g of the reserved ginger.');
+    expect(rendered).toBe('Add 15g of the reserved sample root.');
   });
 
   it('scales literal clove amounts when servings change', () => {
-    const step = 'Slice 2 cloves of garlic.';
+    const step = 'Slice 2 cloves of sample ingredient.';
 
     const rendered = renderMethodStepText(step, baseRecipe, 4);
 
-    expect(rendered).toBe('Slice 4 cloves of garlic.');
+    expect(rendered).toBe('Slice 4 cloves of sample ingredient.');
   });
 
   it('keeps duration ranges unchanged when servings change', () => {
     const step =
-      'Stir and cook for 3-4 minutes until the onions are translucent and the peppers are getting soft.';
+      'Stir and cook for 3-4 minutes until the sample mixture is ready.';
 
-    const rendered = renderMethodStepText(step, redPepperRecipe, 4);
+    const rendered = renderMethodStepText(step, countIngredientRecipe, 4);
 
     expect(rendered).toBe(step);
   });
@@ -213,26 +213,26 @@ describe('renderMethodStepText', () => {
   });
 
   it('scales count amounts for comma-qualified ingredient names', () => {
-    const step = 'Dice 4 chicken thighs.';
+    const step = 'Dice 4 sample pieces.';
 
-    const rendered = renderMethodStepText(step, chickenThighRecipe, 4);
+    const rendered = renderMethodStepText(step, commaQualifiedRecipe, 4);
 
-    expect(rendered).toBe('Dice 8 chicken thighs.');
+    expect(rendered).toBe('Dice 8 sample pieces.');
   });
 
   it('scales literal can amounts when servings change', () => {
-    const step = 'Drain 1 can of sliced black olives.';
+    const step = 'Drain 1 can of sample slices.';
 
-    const rendered = renderMethodStepText(step, cannedOlivesRecipe, 4);
+    const rendered = renderMethodStepText(step, cannedIngredientRecipe, 4);
 
-    expect(rendered).toBe('Drain 2 cans of sliced black olives.');
+    expect(rendered).toBe('Drain 2 cans of sample slices.');
   });
 
   it('scales count amounts for slash-separated ingredient aliases', () => {
-    const step = 'Dice 2 naans into medium pieces.';
+    const step = 'Dice 2 sample flatbreads into medium pieces.';
 
-    const rendered = renderMethodStepText(step, naanRecipe, 4);
+    const rendered = renderMethodStepText(step, slashAliasRecipe, 4);
 
-    expect(rendered).toBe('Dice 4 naans into medium pieces.');
+    expect(rendered).toBe('Dice 4 sample flatbreads into medium pieces.');
   });
 });

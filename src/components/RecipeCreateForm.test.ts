@@ -4,15 +4,15 @@ import type { Recipe } from '../types/recipe';
 
 const recipeWithNutrition: Recipe = {
   defaultServings: 2,
-  id: 'chicken-feta-saag-pie',
+  id: 'sample-nutrition-recipe',
   ingredients: [
     {
       amount: {
-        text: '1 pie',
+        text: '1 serving',
         type: 'fixed'
       },
-      id: 'pie',
-      name: 'pie'
+      id: 'sample-serving',
+      name: 'sample serving'
     }
   ],
   isVegan: false,
@@ -44,7 +44,7 @@ const recipeWithNutrition: Recipe = {
     }
   ],
   tags: ['vegetarian'],
-  title: 'Chicken Feta Saag Pie',
+  title: 'Sample Nutrition Recipe',
   totalTime: '45 mins'
 };
 

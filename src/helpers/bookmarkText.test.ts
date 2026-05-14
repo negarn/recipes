@@ -30,11 +30,11 @@ describe('bookmarkText', () => {
 
   it('annotates matching checkbox lines with the current checkbox state', () => {
     expect(
-      annotateBookmarkBodyTextWithCheckboxes('Mix flour\nStir gently', [
-        { checked: false, text: 'Mix flour' },
+      annotateBookmarkBodyTextWithCheckboxes('Mix sample item\nStir gently', [
+        { checked: false, text: 'Mix sample item' },
         { checked: true, text: 'Stir gently' }
       ])
-    ).toBe('- [ ] Mix flour\n- [x] Stir gently');
+    ).toBe('- [ ] Mix sample item\n- [x] Stir gently');
   });
 
   it('parses bookmark body checkbox lines into display rows', () => {

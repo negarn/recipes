@@ -9,7 +9,7 @@ import {
 
 describe('homePageSearchParams', () => {
   it('defaults to adults when no audience parameter is present', () => {
-    const searchParams = new URLSearchParams('q=rice&page=2');
+    const searchParams = new URLSearchParams('q=sample&page=2');
 
     expect(readHomePageRawAudienceParam(searchParams)).toBeNull();
     expect(readHomePageAudience(searchParams)).toBe('adults');
@@ -22,26 +22,26 @@ describe('homePageSearchParams', () => {
   });
 
   it('writes children audience and removes audience for adults', () => {
-    const currentSearchParams = new URLSearchParams('q=rice&page=2');
+    const currentSearchParams = new URLSearchParams('q=sample&page=2');
     const childrenSearchParams = createHomePageSearchParams(currentSearchParams, {
       audience: 'children',
       page: 2,
-      query: 'rice'
+      query: 'sample'
     });
     const adultsSearchParams = createHomePageSearchParams(childrenSearchParams, {
       audience: 'adults',
       page: 2,
-      query: 'rice'
+      query: 'sample'
     });
 
-    expect(childrenSearchParams.toString()).toBe('q=rice&page=2&audience=children');
-    expect(adultsSearchParams.toString()).toBe('q=rice&page=2');
+    expect(childrenSearchParams.toString()).toBe('q=sample&page=2&audience=children');
+    expect(adultsSearchParams.toString()).toBe('q=sample&page=2');
   });
 
   it('keeps existing query/page parsing behavior', () => {
-    const searchParams = new URLSearchParams('q=chicken&page=3&audience=children');
+    const searchParams = new URLSearchParams('q=sample&page=3&audience=children');
 
-    expect(readHomePageSearchQuery(searchParams)).toBe('chicken');
+    expect(readHomePageSearchQuery(searchParams)).toBe('sample');
     expect(readHomePageSearchPage(searchParams)).toBe(3);
   });
 });

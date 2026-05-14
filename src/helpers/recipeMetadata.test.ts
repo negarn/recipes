@@ -38,7 +38,7 @@ const recipe: Recipe = {
 
 const featuredRecipe: Recipe = {
   defaultServings: 4,
-  id: 'creamy-tomato-soup',
+  id: 'sample-featured-recipe',
   ingredients: [
     {
       amount: {
@@ -46,8 +46,8 @@ const featuredRecipe: Recipe = {
         type: 'scalable',
         unit: { plural: 'cups', singular: 'cup' }
       },
-      id: 'tomatoes',
-      name: 'Tomatoes'
+      id: 'primary-ingredient',
+      name: 'Primary ingredient'
     },
     {
       amount: {
@@ -55,8 +55,8 @@ const featuredRecipe: Recipe = {
         type: 'scalable',
         unit: { singular: 'clove' }
       },
-      id: 'garlic',
-      name: 'Garlic'
+      id: 'secondary-ingredient',
+      name: 'Secondary ingredient'
     }
   ],
   isVegan: true,
@@ -69,7 +69,7 @@ const featuredRecipe: Recipe = {
     }
   ],
   tags: ['quick', 'vegan', 'quick'],
-  title: 'Creamy Tomato Soup',
+  title: 'Sample Featured Recipe',
   totalTime: '25 mins',
   rating: 3.5
 };
@@ -112,8 +112,8 @@ describe('applyRecipeRating', () => {
 
 describe('recipeMatchesSearch', () => {
   it('matches search terms across the title and ingredient names', () => {
-    expect(recipeMatchesSearch(featuredRecipe, 'tomato garlic')).toBe(true);
-    expect(recipeMatchesSearch(featuredRecipe, 'tomato basil')).toBe(false);
+    expect(recipeMatchesSearch(featuredRecipe, 'featured secondary')).toBe(true);
+    expect(recipeMatchesSearch(featuredRecipe, 'featured missing')).toBe(false);
   });
 });
 

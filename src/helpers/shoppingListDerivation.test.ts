@@ -17,15 +17,15 @@ const recipe: Recipe = {
         type: 'scalable',
         unit: { singular: 'tsp' }
       },
-      id: 'salt',
-      name: 'salt'
+      id: 'sample-powder',
+      name: 'sample powder'
     }
   ],
   isVegan: true,
   isVegetarian: true,
   sections: [{ id: 'cook', steps: [], title: 'Cook' }],
   tags: [],
-  title: 'Salt Dish',
+  title: 'Sample Dish',
   totalTime: '10 min'
 };
 
@@ -94,7 +94,7 @@ describe('shopping list derivation', () => {
     expect(sections).toHaveLength(1);
     const item = getOnlyShoppingListItem(sections[0].items);
 
-    expect(item.ingredientName).toBe('salt');
+    expect(item.ingredientName).toBe('sample powder');
     expect(item.isChecked).toBe(false);
     expect(item.checkSourceKeys).toHaveLength(1);
   });
@@ -142,17 +142,17 @@ describe('shopping list derivation', () => {
   });
 
   it('converts large gram amounts to kilograms', () => {
-    const flourRecipe = createRecipeWithSingleScalableIngredient({
+    const gramRecipe = createRecipeWithSingleScalableIngredient({
       id: 'recipe-grams-to-kilograms',
-      ingredientId: 'flour',
-      ingredientName: 'flour',
+      ingredientId: 'sample-grams',
+      ingredientName: 'sample grams',
       quantity: 2200,
       unit: { separator: 'none', singular: 'g' }
     });
 
     const sections = deriveShoppingList({
-      getRecipeById: createGetRecipeById([flourRecipe]),
-      mealPlan: { '2026-04-11': [flourRecipe.id] },
+      getRecipeById: createGetRecipeById([gramRecipe]),
+      mealPlan: { '2026-04-11': [gramRecipe.id] },
       recipeServings: {},
       recipeSettings: {},
       shoppingListChecks: {},
@@ -163,17 +163,17 @@ describe('shopping list derivation', () => {
   });
 
   it('keeps gram amounts under one kilogram in grams', () => {
-    const flourRecipe = createRecipeWithSingleScalableIngredient({
+    const gramRecipe = createRecipeWithSingleScalableIngredient({
       id: 'recipe-grams-under-kilogram',
-      ingredientId: 'flour',
-      ingredientName: 'flour',
+      ingredientId: 'sample-grams',
+      ingredientName: 'sample grams',
       quantity: 220,
       unit: { separator: 'none', singular: 'g' }
     });
 
     const sections = deriveShoppingList({
-      getRecipeById: createGetRecipeById([flourRecipe]),
-      mealPlan: { '2026-04-11': [flourRecipe.id] },
+      getRecipeById: createGetRecipeById([gramRecipe]),
+      mealPlan: { '2026-04-11': [gramRecipe.id] },
       recipeServings: {},
       recipeSettings: {},
       shoppingListChecks: {},

@@ -56,10 +56,10 @@ describe('recipe page route state helpers', () => {
   });
 
   it('builds home and shopping list back links', () => {
-    expect(createHomeRecipePageState('/?q=chili&page=2')).toEqual({
+    expect(createHomeRecipePageState('/?q=sample&page=2')).toEqual({
       backLink: {
         label: 'Back to recipes',
-        to: '/?q=chili&page=2'
+        to: '/?q=sample&page=2'
       }
     });
 

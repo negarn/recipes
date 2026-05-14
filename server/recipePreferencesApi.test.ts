@@ -169,7 +169,7 @@ describe('recipePreferencesApi', () => {
       body: JSON.stringify({ rating: 4 }),
       method: 'PUT',
       remoteAddress: '203.0.113.10',
-      url: `${recipePreferenceApiPaths.recipes}/creamy-mushroom-and-spinach-baked-potatoes/rating`
+      url: `${recipePreferenceApiPaths.recipes}/sample-recipe/rating`
     });
 
     expect(response.statusCode).toBe(403);
@@ -215,7 +215,7 @@ describe('recipePreferencesApi', () => {
     const response = await executeRequest({
       body: JSON.stringify({
         date: 'not-a-date',
-        recipeId: 'creamy-mushroom-and-spinach-baked-potatoes'
+        recipeId: 'sample-recipe'
       }),
       method: 'PUT',
       url: recipePreferenceApiPaths.cookedMealHistoryEntries
@@ -229,7 +229,7 @@ describe('recipePreferencesApi', () => {
     const response = await executeRequest({
       body: JSON.stringify({
         recipeBookmarks: {
-          'creamy-mushroom-and-spinach-baked-potatoes': [
+          'sample-recipe': [
             { id: '', label: 'Missing id', text: 'Saved text' }
           ]
         }
