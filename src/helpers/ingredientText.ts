@@ -221,6 +221,22 @@ export function getIngredientAliasCandidates(ingredientName: string) {
   addIngredientAliasCandidate(normalizedIngredientName);
   addIngredientAliasCandidate(primaryIngredientName);
 
+  primaryIngredientName.split('/').forEach((ingredientNameSegment) => {
+    const normalizedSegment = normalizeIngredientWhitespace(ingredientNameSegment);
+
+    addIngredientAliasCandidate(normalizedSegment);
+
+    const segmentWords = normalizedSegment.split(/\s+/);
+
+    if (segmentWords.length > 1) {
+      addIngredientAliasCandidate(
+        segmentWords.slice(Math.max(segmentWords.length - 2, 0)).join(' ')
+      );
+    }
+
+    addIngredientAliasCandidate(segmentWords[segmentWords.length - 1]);
+  });
+
   if (ingredientNameWords.length > 1) {
     addIngredientAliasCandidate(
       ingredientNameWords.slice(Math.max(ingredientNameWords.length - 2, 0)).join(' ')

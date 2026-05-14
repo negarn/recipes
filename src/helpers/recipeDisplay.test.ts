@@ -120,6 +120,21 @@ const cannedOlivesRecipe: Recipe = {
   ]
 };
 
+const naanRecipe: Recipe = {
+  ...baseRecipe,
+  ingredients: [
+    {
+      amount: {
+        quantity: 2,
+        type: 'scalable',
+        unit: { singular: 'x' }
+      },
+      id: 'plain-naan-sangak',
+      name: 'Plain naan / sangak'
+    }
+  ]
+};
+
 describe('renderMethodStepText', () => {
   it('scales valid literal fractions when servings change', () => {
     const step = 'Stir in 1/2 tsp salt.';
@@ -211,5 +226,13 @@ describe('renderMethodStepText', () => {
     const rendered = renderMethodStepText(step, cannedOlivesRecipe, 4);
 
     expect(rendered).toBe('Drain 2 cans of sliced black olives.');
+  });
+
+  it('scales count amounts for slash-separated ingredient aliases', () => {
+    const step = 'Dice 2 naans into medium pieces.';
+
+    const rendered = renderMethodStepText(step, naanRecipe, 4);
+
+    expect(rendered).toBe('Dice 4 naans into medium pieces.');
   });
 });
