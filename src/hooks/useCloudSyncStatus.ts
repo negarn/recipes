@@ -15,6 +15,7 @@ const CLOUD_SYNC_STATUS_POLL_INTERVAL_MS = 30_000;
 const CLOUD_SYNC_CONNECT_POLL_INTERVAL_MS = 1_000;
 const CLOUD_SYNC_POPUP_FEATURES =
   'popup=yes,width=560,height=760,menubar=no,toolbar=no,location=yes,status=yes';
+export const CLOUD_SYNC_APP_DATA_REFRESH_EVENT = 'recipes-cloud-sync-app-data-refresh';
 
 function normalizeCloudSyncStatus(value: unknown): CloudSyncStatus {
   if (!value || typeof value !== 'object') {
@@ -250,6 +251,7 @@ export function useCloudSyncStatus() {
       }
 
       await refreshStatus();
+      window.dispatchEvent(new Event(CLOUD_SYNC_APP_DATA_REFRESH_EVENT));
       return true;
     } finally {
       setIsActionPending(false);

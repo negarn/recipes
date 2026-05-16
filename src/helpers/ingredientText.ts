@@ -23,7 +23,7 @@ const ingredientAliasPrefixWords = new Set([
 ]);
 
 const canonicalIngredientNameByLowercase: Record<string, string> = {
-  'beef mince': 'Beef mince',
+  'beef mince': 'Ground beef',
   'chicken thighs, bonelss, skinless': 'Chicken thighs, boneless, skinless',
   'cilantro': 'Cilantro',
   'creme fraiche': 'Creme fraiche',
@@ -43,7 +43,7 @@ const canonicalIngredientNameByLowercase: Record<string, string> = {
   'limes': 'Lime',
   'mild chili powder': 'Mild chilli powder',
   'mild chilli powder': 'Mild chilli powder',
-  'minced beef': 'Beef mince',
+  'minced beef': 'Ground beef',
   'red bell pepper': 'Red bell pepper',
   'red bell peppers': 'Red bell pepper',
   'red onion': 'Red onion',

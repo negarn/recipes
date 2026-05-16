@@ -94,7 +94,7 @@ describe('shopping list derivation', () => {
     expect(sections).toHaveLength(1);
     const item = getOnlyShoppingListItem(sections[0].items);
 
-    expect(item.ingredientName).toBe('sample powder');
+    expect(item.ingredientName).toBe('Sample powder');
     expect(item.isChecked).toBe(false);
     expect(item.checkSourceKeys).toHaveLength(1);
   });
@@ -184,11 +184,18 @@ describe('shopping list derivation', () => {
   });
 
   it.each([
+    ['beef-mince', 'Beef mince', 'minced-beef', 'minced beef', 'Ground beef'],
     ['feta', 'Feta', 'feta-cheese', 'Feta cheese'],
     ['cheddar', 'Cheddar', 'cheddar-cheese', 'Cheddar cheese']
   ])(
     'merges %s and %s into one shopping list item',
-    (baseIngredientId, baseIngredientName, variantIngredientId, variantIngredientName) => {
+    (
+      baseIngredientId,
+      baseIngredientName,
+      variantIngredientId,
+      variantIngredientName,
+      expectedIngredientName = baseIngredientName
+    ) => {
       const baseRecipe = createRecipeWithSingleScalableIngredient({
         id: `recipe-${baseIngredientId}`,
         ingredientId: baseIngredientId,
@@ -219,8 +226,45 @@ describe('shopping list derivation', () => {
       const item = getOnlyShoppingListItem(sections[0].items);
 
       expect(item.amountLabel).toBe('100g');
+      expect(item.ingredientName).toBe(expectedIngredientName);
       expect(item.sources).toHaveLength(2);
       expect(item.checkSourceKeys).toHaveLength(2);
     }
   );
+
+  it('combines same-name scalable ingredients with different measurement units', () => {
+    const butterByWeightRecipe = createRecipeWithSingleScalableIngredient({
+      id: 'recipe-butter-by-weight',
+      ingredientId: 'butter-by-weight',
+      ingredientName: 'Unsalted butter',
+      quantity: 140,
+      unit: { separator: 'none', singular: 'g' }
+    });
+    const butterBySpoonRecipe = createRecipeWithSingleScalableIngredient({
+      id: 'recipe-butter-by-spoon',
+      ingredientId: 'butter-by-spoon',
+      ingredientName: 'Unsalted butter',
+      quantity: 2,
+      unit: { singular: 'tbsp' }
+    });
+
+    const sections = deriveShoppingList({
+      getRecipeById: createGetRecipeById([butterByWeightRecipe, butterBySpoonRecipe]),
+      mealPlan: {
+        '2026-04-11': [butterByWeightRecipe.id, butterBySpoonRecipe.id]
+      },
+      recipeServings: {},
+      recipeSettings: {},
+      shoppingListChecks: {},
+      shoppingListCustomItems: []
+    });
+
+    expect(sections).toHaveLength(1);
+    const item = getOnlyShoppingListItem(sections[0].items);
+
+    expect(item.amountLabel).toBe('140g + 2 tbsp');
+    expect(item.ingredientName).toBe('Unsalted butter');
+    expect(item.sources).toHaveLength(2);
+    expect(item.checkSourceKeys).toHaveLength(2);
+  });
 });

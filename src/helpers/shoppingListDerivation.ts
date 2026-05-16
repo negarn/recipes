@@ -175,8 +175,7 @@ function getShoppingListItemKey(ingredient: Ingredient) {
   return [
     'scalable',
     normalizedIngredientName,
-    ingredient.amount.note?.trim().toLowerCase() ?? '',
-    getScalableMeasurementKey(unit)
+    ingredient.amount.note?.trim().toLowerCase() ?? ''
   ].join(':');
 }
 
@@ -186,6 +185,68 @@ function getCustomShoppingListItemKey(customItemId: string) {
 
 function formatFixedShoppingListAmount(amountText: string, sourceCount: number) {
   return sourceCount === 1 ? amountText : `${sourceCount} × ${amountText}`;
+}
+
+function getScalableContributionAmountLabel(
+  contributions: Array<
+    Extract<ShoppingListItemContribution, { amountType: 'scalable' }>
+  >
+) {
+  const contributionsByMeasurementKey = new Map<
+    string,
+    Array<Extract<ShoppingListItemContribution, { amountType: 'scalable' }>>
+  >();
+
+  contributions.forEach((contribution) => {
+    appendMapArrayValue(
+      contributionsByMeasurementKey,
+      getScalableMeasurementKey(contribution.unit),
+      contribution
+    );
+  });
+
+  return Array.from(contributionsByMeasurementKey.values())
+    .map((measurementContributions) => {
+      const [firstMeasurementContribution] = measurementContributions;
+
+      if (!firstMeasurementContribution) {
+        return '';
+      }
+
+      const firstContributionSpoonUnitQuantity = getSpoonUnitQuantityInTeaspoons(
+        firstMeasurementContribution.unit
+      );
+
+      if (firstContributionSpoonUnitQuantity === null) {
+        return formatScalableShoppingListAmount(
+          measurementContributions.reduce(
+            (totalQuantity, contribution) => totalQuantity + contribution.quantity,
+            0
+          ),
+          firstMeasurementContribution.unit,
+          firstMeasurementContribution.note
+        );
+      }
+
+      return formatCombinedSpoonShoppingListAmount(
+        measurementContributions.reduce((totalQuantityInTeaspoons, contribution) => {
+          const spoonUnitQuantityInTeaspoons = getSpoonUnitQuantityInTeaspoons(
+            contribution.unit
+          );
+
+          if (spoonUnitQuantityInTeaspoons === null) {
+            return totalQuantityInTeaspoons;
+          }
+
+          return (
+            totalQuantityInTeaspoons + contribution.quantity * spoonUnitQuantityInTeaspoons
+          );
+        }, 0),
+        firstMeasurementContribution.note
+      );
+    })
+    .filter(Boolean)
+    .join(' + ');
 }
 
 function sortShoppingListSources(sources: ShoppingListSource[]) {
@@ -263,6 +324,10 @@ function buildShoppingListItemContributions({
 
       recipe.ingredients.forEach((ingredient) => {
         const itemKey = getShoppingListItemKey(ingredient);
+        const ingredientName = normalizeIngredientName(
+          ingredient.name,
+          ingredient.amount.type === 'scalable' ? ingredient.amount.unit : undefined
+        );
         const categoryId = getShoppingListCategoryId(
           ingredient.name,
           ingredient.amount.type === 'scalable' ? ingredient.amount.unit : undefined
@@ -284,7 +349,7 @@ function buildShoppingListItemContributions({
             amountText: ingredient.amount.text,
             amountType: 'fixed',
             categoryId,
-            ingredientName: ingredient.name,
+            ingredientName,
             itemKey,
             source
           });
@@ -300,7 +365,7 @@ function buildShoppingListItemContributions({
         appendMapArrayValue(contributionsByItemKey, itemKey, {
           amountType: 'scalable',
           categoryId,
-          ingredientName: ingredient.name,
+          ingredientName,
           itemKey,
           note: ingredient.amount.note,
           quantity: scaledQuantity,
@@ -417,9 +482,6 @@ function createShoppingListItem(
       contributions.length
     );
   } else {
-    const firstContributionSpoonUnitQuantity = getSpoonUnitQuantityInTeaspoons(
-      firstContribution.unit
-    );
     const scalableContributions = contributions.filter(
       (
         contribution
@@ -427,33 +489,7 @@ function createShoppingListItem(
         contribution.amountType === 'scalable'
     );
 
-    amountLabel =
-      firstContributionSpoonUnitQuantity === null
-        ? formatScalableShoppingListAmount(
-            scalableContributions.reduce(
-              (totalQuantity, contribution) => totalQuantity + contribution.quantity,
-              0
-            ),
-            firstContribution.unit,
-            firstContribution.note
-          )
-        : formatCombinedSpoonShoppingListAmount(
-            scalableContributions.reduce((totalQuantityInTeaspoons, contribution) => {
-              const spoonUnitQuantityInTeaspoons = getSpoonUnitQuantityInTeaspoons(
-                contribution.unit
-              );
-
-              if (spoonUnitQuantityInTeaspoons === null) {
-                return totalQuantityInTeaspoons;
-              }
-
-              return (
-                totalQuantityInTeaspoons +
-                contribution.quantity * spoonUnitQuantityInTeaspoons
-              );
-            }, 0),
-            firstContribution.note
-          );
+    amountLabel = getScalableContributionAmountLabel(scalableContributions);
   }
 
   return {

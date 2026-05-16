@@ -3,6 +3,8 @@ import { normalizeIngredientName } from './ingredientText';
 
 describe('normalizeIngredientName', () => {
   it.each([
+    ['beef mince', 'Ground beef'],
+    ['minced beef', 'Ground beef'],
     ['feta', 'Feta'],
     ['feta cheese', 'Feta'],
     ['cheddar', 'Cheddar'],

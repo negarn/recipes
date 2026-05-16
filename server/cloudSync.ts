@@ -201,6 +201,21 @@ function getErrorMessage(value: unknown, fallbackMessage: string) {
     return value.message;
   }
 
+  if (isRecordLike(value)) {
+    const errorDescription = value.error_description;
+    const error = value.error;
+
+    if (typeof errorDescription === 'string') {
+      return typeof error === 'string'
+        ? `${error}: ${errorDescription}`
+        : errorDescription;
+    }
+
+    if (typeof error === 'string') {
+      return error;
+    }
+  }
+
   return fallbackMessage;
 }
 
@@ -1341,7 +1356,12 @@ export function createCloudSyncManager(options: CloudSyncManagerOptions) {
 
   async function handleSyncRoute(response: ServerResponse) {
     try {
-      await syncLocalBundleToRemote();
+      const didPullRemote = await pullRemoteBundleIfNewer();
+
+      if (!didPullRemote) {
+        await syncLocalBundleToRemote();
+      }
+
       sendJson(response, 200, { cloudSync: await getStatus() });
     } catch (error) {
       const message = getErrorMessage(error, 'Could not sync cloud data.');

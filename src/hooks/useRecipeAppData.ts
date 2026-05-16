@@ -27,6 +27,7 @@ import {
 } from '../helpers/recipePreferenceData';
 import { reconcileShoppingListChecks } from '../helpers/shoppingList';
 import { useAsyncQueueRef } from './useAsyncQueueRef';
+import { CLOUD_SYNC_APP_DATA_REFRESH_EVENT } from './useCloudSyncStatus';
 import { useRefBackedState } from './useRefBackedState';
 import { useShoppingListState } from './useShoppingListState';
 import type {
@@ -483,7 +484,11 @@ export function useRecipeAppData({
   useEffect(() => {
     let isCurrent = true;
 
-    async function loadRecipeAppData() {
+    async function loadRecipeAppData({ isCloudSyncRefresh = false } = {}) {
+      if (isCloudSyncRefresh && dirtyPreferenceKeysRef.current.size > 0) {
+        return;
+      }
+
       const loadedRecipeAppData = await fetchRecipeAppDataSnapshot({
         onError: logError
       });
@@ -495,10 +500,19 @@ export function useRecipeAppData({
       applyLoadedRecipeAppData(loadedRecipeAppData);
     }
 
+    function handleCloudSyncAppDataRefresh() {
+      void loadRecipeAppData({ isCloudSyncRefresh: true });
+    }
+
+    window.addEventListener(CLOUD_SYNC_APP_DATA_REFRESH_EVENT, handleCloudSyncAppDataRefresh);
     void loadRecipeAppData();
 
     return () => {
       isCurrent = false;
+      window.removeEventListener(
+        CLOUD_SYNC_APP_DATA_REFRESH_EVENT,
+        handleCloudSyncAppDataRefresh
+      );
     };
   }, []);
 
