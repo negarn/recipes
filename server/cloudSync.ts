@@ -490,7 +490,7 @@ async function getGoogleRemoteFileMetadata(accessToken: string, fileId: string) 
   };
 }
 
-async function findGoogleRemoteFileId(accessToken: string) {
+async function listGoogleRemoteFileMetadata(accessToken: string) {
   const response = await fetch(
     'https://www.googleapis.com/drive/v3/files?spaces=appDataFolder&q=name%3D%27recipes-app-state.json%27%20and%20trashed%3Dfalse&fields=files(id%2CmodifiedTime%2Cname)',
     {
@@ -507,20 +507,28 @@ async function findGoogleRemoteFileId(accessToken: string) {
   const parsedResponse = (await response.json()) as Partial<{
     files: Array<Partial<Record<'id' | 'modifiedTime' | 'name', unknown>>>;
   }>;
-  const remoteFile = parsedResponse.files?.[0];
 
-  if (
-    !remoteFile ||
-    typeof remoteFile.id !== 'string' ||
-    typeof remoteFile.modifiedTime !== 'string'
-  ) {
-    return null;
-  }
+  return (parsedResponse.files ?? [])
+    .flatMap((remoteFile) => {
+      if (
+        typeof remoteFile.id !== 'string' ||
+        typeof remoteFile.modifiedTime !== 'string'
+      ) {
+        return [];
+      }
 
-  return {
-    fileId: remoteFile.id,
-    modifiedAt: remoteFile.modifiedTime
-  };
+      return [{
+        fileId: remoteFile.id,
+        modifiedAt: remoteFile.modifiedTime
+      }];
+    })
+    .sort((firstFile, secondFile) =>
+      secondFile.modifiedAt.localeCompare(firstFile.modifiedAt)
+    );
+}
+
+async function findGoogleRemoteFileId(accessToken: string) {
+  return (await listGoogleRemoteFileMetadata(accessToken))[0] ?? null;
 }
 
 async function createGoogleRemoteFile(accessToken: string, bundle: CloudSyncBundle) {
@@ -774,19 +782,23 @@ class CloudProviderAdapter {
   async ensureRemoteMetadata(connection: CloudSyncConnectionState) {
     if (this.provider === 'google-drive') {
       const accessToken = await this.getValidAccessToken(connection);
-      const remoteBundleId =
-        connection.remoteBundleId ??
-        (await findGoogleRemoteFileId(accessToken))?.fileId ??
-        null;
-
-      if (!remoteBundleId) {
-        return null;
-      }
-
-      const metadata = await getGoogleRemoteFileMetadata(accessToken, remoteBundleId);
+      const latestMetadata = await findGoogleRemoteFileId(accessToken);
+      const currentMetadata = connection.remoteBundleId
+        ? await getGoogleRemoteFileMetadata(accessToken, connection.remoteBundleId)
+        : null;
+      const metadata =
+        currentMetadata &&
+        (!latestMetadata || currentMetadata.modifiedAt >= latestMetadata.modifiedAt)
+          ? currentMetadata
+          : latestMetadata;
 
       if (!metadata) {
         return null;
+      }
+
+      if (connection.remoteBundleId !== metadata.fileId) {
+        connection.remoteBundleId = metadata.fileId;
+        await this.persistState();
       }
 
       return {
