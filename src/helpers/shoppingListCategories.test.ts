@@ -21,10 +21,15 @@ describe('getShoppingListCategoryId', () => {
   it.each([
     ['eggplant', 'fruit-veg'],
     ['cayenne', 'herbs-spices'],
+    ['garlic powder', 'herbs-spices'],
     ['almond flake', 'pantry'],
+    ['beef broth', 'pantry'],
+    ['beef stock cube', 'pantry'],
+    ['chicken stock cube', 'pantry'],
     ['dried apricot', 'pantry'],
     ['hot sauce', 'pantry'],
     ['red wine', 'pantry'],
+    ['tomato sauce', 'pantry'],
     ['walnut', 'pantry'],
     ['white wine', 'pantry'],
     ['worcestershire sauce', 'pantry']

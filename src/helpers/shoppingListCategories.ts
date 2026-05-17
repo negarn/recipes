@@ -48,7 +48,7 @@ const shoppingListCategoryMatchers: Array<{
   },
   {
     categoryId: 'pantry',
-    keywords: ['tinned corn']
+    keywords: ['beef broth', 'beef stock cube', 'chicken stock cube', 'tinned corn']
   },
   {
     categoryId: 'fruit-veg',
@@ -182,6 +182,7 @@ const shoppingListCategoryMatchers: Array<{
       'curry powder',
       'dill',
       'fennel seed',
+      'garlic powder',
       'garam masala',
       'mint',
       'nutmeg',
@@ -238,6 +239,7 @@ const shoppingListCategoryMatchers: Array<{
       'walnut',
       'white wine',
       'worcestershire sauce',
+      'tomato sauce',
       'tinned tomato',
       'tomatoes can',
       'vinegar'

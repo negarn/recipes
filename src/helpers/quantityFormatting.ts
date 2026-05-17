@@ -3,11 +3,27 @@ import type { IngredientUnit } from '../types/recipe';
 export const teaspoonUnit: IngredientUnit = { singular: 'tsp' };
 export const tablespoonUnit: IngredientUnit = { singular: 'tbsp' };
 
+const commonQuantityFractions = [
+  { denominator: 2, numerator: 1 },
+  { denominator: 3, numerator: 1 },
+  { denominator: 3, numerator: 2 },
+  { denominator: 4, numerator: 1 },
+  { denominator: 4, numerator: 3 }
+] as const;
+
 export function formatQuantity(value: number) {
   const roundedValue = Math.round(value * 100) / 100;
 
   if (Number.isInteger(roundedValue)) {
     return `${roundedValue}`;
+  }
+
+  const fraction = commonQuantityFractions.find(
+    ({ denominator, numerator }) => roundedValue === numerator / denominator
+  );
+
+  if (fraction) {
+    return `${fraction.numerator}/${fraction.denominator}`;
   }
 
   return roundedValue.toFixed(2).replace(/\.?0+$/, '');

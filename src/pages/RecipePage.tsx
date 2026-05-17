@@ -28,6 +28,7 @@ import {
   applyRecipeRating,
   getRecipeServingDetails
 } from '../helpers/recipeMetadata';
+import { isRecipeForChildren } from '../helpers/recipeAudience';
 import { getTodayMealPlanDateString } from '../helpers/mealPlanData';
 import {
   DEFAULT_RECIPE_SERVING_SIZE,
@@ -186,6 +187,7 @@ export function RecipePage() {
 
   const currentRecipe = recipe;
   const hasCookSection = currentRecipe.sections.some((section) => section.id === 'cook');
+  const isChildrenRecipe = isRecipeForChildren(currentRecipe);
 
   function handleRatingChange(nextRating: number) {
     void ratingAction.run(
@@ -382,7 +384,10 @@ export function RecipePage() {
             />
 
             <div className="hidden min-[900px]:block">
-              <RecipeNutritionCard nutrition={recipe.nutrition} />
+              <RecipeNutritionCard
+                isChildrenRecipe={isChildrenRecipe}
+                nutrition={recipe.nutrition}
+              />
             </div>
           </div>
 
@@ -409,7 +414,10 @@ export function RecipePage() {
                 />
                 {section.id === 'cook' ? (
                   <div className="min-w-0 min-[900px]:hidden">
-                    <RecipeNutritionCard nutrition={recipe.nutrition} />
+                    <RecipeNutritionCard
+                      isChildrenRecipe={isChildrenRecipe}
+                      nutrition={recipe.nutrition}
+                    />
                   </div>
                 ) : null}
               </div>
@@ -417,7 +425,10 @@ export function RecipePage() {
 
             {!hasCookSection ? (
               <div className="min-w-0 min-[900px]:hidden">
-                <RecipeNutritionCard nutrition={recipe.nutrition} />
+                <RecipeNutritionCard
+                  isChildrenRecipe={isChildrenRecipe}
+                  nutrition={recipe.nutrition}
+                />
               </div>
             ) : null}
 

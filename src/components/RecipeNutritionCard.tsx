@@ -7,13 +7,37 @@ import {
 import type { CSSProperties } from 'react';
 import type { RecipeNutrition } from '../types/recipe';
 
-const CALORIE_REFERENCE = 2000;
-const PROTEIN_DAILY_VALUE = 50;
-const FAT_DAILY_VALUE = 78;
-const SATURATED_FAT_DAILY_VALUE = 20;
-const CARBOHYDRATE_DAILY_VALUE = 275;
-const FIBRE_DAILY_VALUE = 28;
-const SODIUM_DAILY_VALUE_MG = 2300;
+type NutritionDailyValueProfile = {
+  calorieReference: number;
+  carbohydrateDailyValue: number;
+  fatDailyValue: number;
+  fibreDailyValue: number;
+  label: string;
+  proteinDailyValue: number;
+  saturatedFatDailyValue: number;
+  sodiumDailyValueMg: number;
+};
+
+const ADULT_DAILY_VALUE_PROFILE: NutritionDailyValueProfile = {
+  calorieReference: 2000,
+  carbohydrateDailyValue: 275,
+  fatDailyValue: 78,
+  fibreDailyValue: 28,
+  label: 'FDA adult Daily Values',
+  proteinDailyValue: 50,
+  saturatedFatDailyValue: 20,
+  sodiumDailyValueMg: 2300
+};
+const CHILD_DAILY_VALUE_PROFILE: NutritionDailyValueProfile = {
+  calorieReference: 1000,
+  carbohydrateDailyValue: 150,
+  fatDailyValue: 39,
+  fibreDailyValue: 14,
+  label: 'FDA Daily Values for children ages 1-3',
+  proteinDailyValue: 13,
+  saturatedFatDailyValue: 10,
+  sodiumDailyValueMg: 1500
+};
 const SALT_TO_SODIUM_FACTOR = 2.5;
 const NUTRITION_TABLE_RADIUS_PX = 24;
 
@@ -29,8 +53,16 @@ const nutritionMetricDefinitions: Array<{
   key: keyof RecipeNutrition['values'];
   label: string;
   dailyValue:
-    | { type: 'calories'; value: number }
-    | { type: 'grams'; value: number }
+    | {
+        profileKey:
+          | 'calorieReference'
+          | 'carbohydrateDailyValue'
+          | 'fatDailyValue'
+          | 'fibreDailyValue'
+          | 'proteinDailyValue'
+          | 'saturatedFatDailyValue';
+        type: 'calories' | 'grams';
+      }
     | { type: 'salt' }
     | { type: 'none' };
   depth?: number;
@@ -39,32 +71,32 @@ const nutritionMetricDefinitions: Array<{
   {
     key: 'calories',
     label: 'Calories',
-    dailyValue: { type: 'calories', value: CALORIE_REFERENCE },
+    dailyValue: { profileKey: 'calorieReference', type: 'calories' },
     unit: 'kcal'
   },
   {
     key: 'fat',
     label: 'Fat',
-    dailyValue: { type: 'grams', value: FAT_DAILY_VALUE },
+    dailyValue: { profileKey: 'fatDailyValue', type: 'grams' },
     unit: 'g'
   },
   {
     key: 'saturates',
     label: 'Saturated fat',
-    dailyValue: { type: 'grams', value: SATURATED_FAT_DAILY_VALUE },
+    dailyValue: { profileKey: 'saturatedFatDailyValue', type: 'grams' },
     depth: 1,
     unit: 'g'
   },
   {
     key: 'carbs',
     label: 'Carbohydrate',
-    dailyValue: { type: 'grams', value: CARBOHYDRATE_DAILY_VALUE },
+    dailyValue: { profileKey: 'carbohydrateDailyValue', type: 'grams' },
     unit: 'g'
   },
   {
     key: 'fibre',
     label: 'Fibre',
-    dailyValue: { type: 'grams', value: FIBRE_DAILY_VALUE },
+    dailyValue: { profileKey: 'fibreDailyValue', type: 'grams' },
     depth: 1,
     unit: 'g'
   },
@@ -78,7 +110,7 @@ const nutritionMetricDefinitions: Array<{
   {
     key: 'protein',
     label: 'Protein',
-    dailyValue: { type: 'grams', value: PROTEIN_DAILY_VALUE },
+    dailyValue: { profileKey: 'proteinDailyValue', type: 'grams' },
     unit: 'g'
   },
   {
@@ -91,7 +123,8 @@ const nutritionMetricDefinitions: Array<{
 
 function getNutritionDailyValueLabel(
   value: number,
-  dailyValue: (typeof nutritionMetricDefinitions)[number]['dailyValue']
+  dailyValue: (typeof nutritionMetricDefinitions)[number]['dailyValue'],
+  dailyValueProfile: NutritionDailyValueProfile
 ) {
   if (!Number.isFinite(value) || value < 0) {
     return '—';
@@ -103,8 +136,9 @@ function getNutritionDailyValueLabel(
 
   const percent =
     dailyValue.type === 'salt'
-      ? (((value / SALT_TO_SODIUM_FACTOR) * 1000) / SODIUM_DAILY_VALUE_MG) * 100
-      : (value / dailyValue.value) * 100;
+      ? (((value / SALT_TO_SODIUM_FACTOR) * 1000) / dailyValueProfile.sodiumDailyValueMg) *
+        100
+      : (value / dailyValueProfile[dailyValue.profileKey]) * 100;
 
   if (percent > 0 && percent < 1) {
     return '<1%';
@@ -135,11 +169,16 @@ function getNutritionRows(nutrition?: RecipeNutrition) {
 }
 
 export function RecipeNutritionCard({
+  isChildrenRecipe = false,
   nutrition
 }: {
+  isChildrenRecipe?: boolean;
   nutrition?: RecipeNutrition;
 }) {
   const nutritionRows = getNutritionRows(nutrition);
+  const dailyValueProfile = isChildrenRecipe
+    ? CHILD_DAILY_VALUE_PROFILE
+    : ADULT_DAILY_VALUE_PROFILE;
 
   return (
     <div data-bookmark-selection-exclude="true">
@@ -198,17 +237,22 @@ export function RecipeNutritionCard({
                           : 'text-right text-app-brand-strong'
                       )}
                     >
-                      {getNutritionDailyValueLabel(item.scaledValue, item.dailyValue)}
+                      {getNutritionDailyValueLabel(
+                        item.scaledValue,
+                        item.dailyValue,
+                        dailyValueProfile
+                      )}
                     </p>
                   </div>
                 );
               })}
             </div>
             <p className="m-0 border-t border-app-field-border px-4 py-3 text-[0.78rem] text-app-muted-soft">
-              Values shown for 1 serving. % DV uses FDA adult Daily Values.
-              Calories are shown against a 2,000-calorie diet, sugars have
-              no established FDA %DV, and salt is converted to a sodium
-              equivalent for comparison.
+              Values shown for 1 serving. % DV uses {dailyValueProfile.label}.
+              Calories are shown against a{' '}
+              {dailyValueProfile.calorieReference.toLocaleString('en-CA')}-calorie
+              diet, sugars have no established FDA %DV, and salt is converted
+              to a sodium equivalent for comparison.
             </p>
           </div>
         ) : (

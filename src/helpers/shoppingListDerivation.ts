@@ -170,8 +170,6 @@ function getShoppingListItemKey(ingredient: Ingredient) {
     return `fixed:${normalizedIngredientName}:${ingredient.amount.text.trim().toLowerCase()}`;
   }
 
-  const unit = ingredient.amount.unit;
-
   return [
     'scalable',
     normalizedIngredientName,
