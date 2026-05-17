@@ -2,6 +2,7 @@ import type { CloudSyncProvider } from './cloudSyncData';
 
 export const cloudSyncApiPaths = {
   disconnect: '/api/cloud-sync/disconnect',
+  resetLocal: '/api/cloud-sync/reset-local',
   status: '/api/cloud-sync',
   sync: '/api/cloud-sync/sync'
 } as const;

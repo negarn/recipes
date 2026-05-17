@@ -1098,6 +1098,40 @@ export function createCloudSyncManager(options: CloudSyncManagerOptions) {
     }
   }
 
+  async function resetLocalBundleFromRemote() {
+    const { adapter, connection } = await getConnectionOrThrow();
+
+    if (syncTimer) {
+      clearTimeout(syncTimer);
+      syncTimer = null;
+    }
+
+    isSyncInFlight = true;
+
+    try {
+      const remoteMetadata = await adapter.ensureRemoteMetadata(connection);
+
+      if (!remoteMetadata?.modifiedAt) {
+        throw new CloudSyncError('No cloud sync data was found to restore.');
+      }
+
+      const remoteBundle = await adapter.downloadRemoteBundle({ connection });
+
+      if (!remoteBundle) {
+        throw new CloudSyncError('Could not download cloud sync data.');
+      }
+
+      await applySnapshotToLocal(remoteBundle);
+      connection.lastKnownRemoteModifiedAt = remoteMetadata.modifiedAt;
+      connection.lastSyncedAt = new Date().toISOString();
+      persistedState.activeConnection = connection;
+      await saveState();
+    } finally {
+      isSyncInFlight = false;
+      refreshStatus();
+    }
+  }
+
   async function connectProvider({
     provider,
     code,
@@ -1374,6 +1408,21 @@ export function createCloudSyncManager(options: CloudSyncManagerOptions) {
     }
   }
 
+  async function handleResetLocalRoute(response: ServerResponse) {
+    try {
+      await resetLocalBundleFromRemote();
+      sendJson(response, 200, { cloudSync: await getStatus() });
+    } catch (error) {
+      const message = getErrorMessage(error, 'Could not reset local data from cloud.');
+      if (persistedState.activeConnection) {
+        lastErrorByProvider[persistedState.activeConnection.provider] = message;
+        refreshStatus();
+      }
+      options.onError?.(error);
+      sendJson(response, 500, { error: message });
+    }
+  }
+
   async function getStatus() {
     refreshStatus();
     return status;
@@ -1440,6 +1489,11 @@ export function createCloudSyncManager(options: CloudSyncManagerOptions) {
 
     if (request.method === 'POST' && requestPath === '/api/cloud-sync/sync') {
       await handleSyncRoute(response);
+      return true;
+    }
+
+    if (request.method === 'POST' && requestPath === '/api/cloud-sync/reset-local') {
+      await handleResetLocalRoute(response);
       return true;
     }
 

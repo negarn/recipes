@@ -1,4 +1,5 @@
-import { useMemo } from 'react';
+import { useMemo, useState } from 'react';
+import { DeleteConfirmationDialog } from './DeleteConfirmationDialog';
 import { InlineMessage } from './InlineMessage';
 import { cn, pillButtonClass, pillDangerButtonClass, subheadingChipClass, subheadingLabelClass, surfaceSectionCardClass, surfaceSectionTitleClass } from '../helpers/uiClasses';
 import {
@@ -49,6 +50,9 @@ function CloudProviderCard({
   connect,
   disconnect,
   isPending,
+  isResetPending,
+  isSyncPending,
+  onRequestResetLocal,
   pendingProvider,
   provider,
   syncNow,
@@ -58,6 +62,9 @@ function CloudProviderCard({
   connect: (provider: CloudSyncProvider) => Promise<boolean>;
   disconnect: () => Promise<boolean>;
   isPending: boolean;
+  isResetPending: boolean;
+  isSyncPending: boolean;
+  onRequestResetLocal: () => void;
   pendingProvider: CloudSyncProvider | null;
   provider: CloudSyncProvider;
   syncNow: () => Promise<boolean>;
@@ -144,7 +151,21 @@ function CloudProviderCard({
               onClick={() => void syncNow()}
               disabled={isPending}
             >
-              {isPending && pendingProvider === null ? 'Syncing...' : 'Sync now'}
+              {isSyncPending ? 'Syncing...' : 'Sync now'}
+            </button>
+          ) : null}
+
+          {isActive ? (
+            <button
+              type="button"
+              className={cn(
+                pillDangerButtonClass,
+                'h-[2.78rem] w-full justify-center px-[1rem] text-[0.82rem] min-[720px]:w-auto min-[720px]:min-w-[13.5rem]'
+              )}
+              onClick={onRequestResetLocal}
+              disabled={isPending}
+            >
+              {isResetPending ? 'Replacing...' : 'Replace local with cloud'}
             </button>
           ) : null}
 
@@ -168,16 +189,23 @@ function CloudProviderCard({
 }
 
 export function CloudSyncSection() {
+  const [isResetDialogOpen, setIsResetDialogOpen] = useState(false);
+  const [hasAttemptedReset, setHasAttemptedReset] = useState(false);
   const {
     connect,
     disconnect,
     error,
     isLoading,
     isPending,
+    pendingAction,
     pendingProvider,
+    resetLocalFromCloud,
     status,
     syncNow
   } = useCloudSyncStatus();
+  const activeProviderLabel = status.activeProvider
+    ? cloudSyncProviderLabels[status.activeProvider]
+    : 'cloud';
 
   const cards = useMemo(
     () =>
@@ -188,13 +216,21 @@ export function CloudSyncSection() {
           connect={connect}
           disconnect={disconnect}
           isPending={isPending}
+          isResetPending={pendingAction === 'reset-local'}
+          isSyncPending={
+            pendingAction === 'sync' || (!pendingAction && isPending && pendingProvider === null)
+          }
+          onRequestResetLocal={() => {
+            setHasAttemptedReset(false);
+            setIsResetDialogOpen(true);
+          }}
           pendingProvider={pendingProvider}
           provider={provider}
           syncNow={syncNow}
           status={status.providers[provider]}
         />
       )),
-    [connect, disconnect, isPending, pendingProvider, status, syncNow]
+    [connect, disconnect, isPending, pendingAction, pendingProvider, status, syncNow]
   );
 
   return (
@@ -231,6 +267,33 @@ export function CloudSyncSection() {
 
         {error ? <InlineMessage>{error}</InlineMessage> : null}
       </div>
+
+      {isResetDialogOpen ? (
+        <DeleteConfirmationDialog
+          busyLabel="Replacing..."
+          confirmLabel="Replace local data"
+          description={`This will overwrite the recipes and settings saved on this device or server with the connected ${activeProviderLabel} cloud copy. Local-only changes here will be lost.`}
+          errorMessage={hasAttemptedReset ? error : null}
+          headerLabel="Cloud restore"
+          isBusy={pendingAction === 'reset-local'}
+          onCancel={() => {
+            if (pendingAction !== 'reset-local') {
+              setIsResetDialogOpen(false);
+            }
+          }}
+          onConfirm={() => {
+            setHasAttemptedReset(true);
+            void (async () => {
+              const didReset = await resetLocalFromCloud();
+
+              if (didReset) {
+                setIsResetDialogOpen(false);
+              }
+            })();
+          }}
+          title="Replace local data with cloud?"
+        />
+      ) : null}
     </section>
   );
 }

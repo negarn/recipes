@@ -16,6 +16,7 @@ const CLOUD_SYNC_CONNECT_POLL_INTERVAL_MS = 1_000;
 const CLOUD_SYNC_POPUP_FEATURES =
   'popup=yes,width=560,height=760,menubar=no,toolbar=no,location=yes,status=yes';
 export const CLOUD_SYNC_APP_DATA_REFRESH_EVENT = 'recipes-cloud-sync-app-data-refresh';
+type CloudSyncPendingAction = 'reset-local' | 'sync' | null;
 
 function normalizeCloudSyncStatus(value: unknown): CloudSyncStatus {
   if (!value || typeof value !== 'object') {
@@ -71,6 +72,7 @@ export function useCloudSyncStatus() {
   const [error, setError] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [isActionPending, setIsActionPending] = useState(false);
+  const [pendingAction, setPendingAction] = useState<CloudSyncPendingAction>(null);
   const [pendingProvider, setPendingProvider] = useState<CloudSyncProvider | null>(null);
   const pendingPopupRef = useRef<Window | null>(null);
   const refreshTimerRef = useRef<number | null>(null);
@@ -239,6 +241,7 @@ export function useCloudSyncStatus() {
   async function syncNow() {
     setError(null);
     setIsActionPending(true);
+    setPendingAction('sync');
 
     try {
       const response = await fetch(cloudSyncApiPaths.sync, {
@@ -254,6 +257,31 @@ export function useCloudSyncStatus() {
       window.dispatchEvent(new Event(CLOUD_SYNC_APP_DATA_REFRESH_EVENT));
       return true;
     } finally {
+      setPendingAction(null);
+      setIsActionPending(false);
+    }
+  }
+
+  async function resetLocalFromCloud() {
+    setError(null);
+    setIsActionPending(true);
+    setPendingAction('reset-local');
+
+    try {
+      const response = await fetch(cloudSyncApiPaths.resetLocal, {
+        method: 'POST'
+      });
+
+      if (!response.ok) {
+        setError('Could not reset local data from cloud.');
+        return false;
+      }
+
+      await refreshStatus();
+      window.dispatchEvent(new Event(CLOUD_SYNC_APP_DATA_REFRESH_EVENT));
+      return true;
+    } finally {
+      setPendingAction(null);
       setIsActionPending(false);
     }
   }
@@ -264,8 +292,10 @@ export function useCloudSyncStatus() {
     error,
     isLoading,
     isPending: Boolean(pendingProvider) || isActionPending || status.isSyncing,
+    pendingAction,
     pendingProvider,
     refreshStatus,
+    resetLocalFromCloud,
     status,
     syncNow
   };
