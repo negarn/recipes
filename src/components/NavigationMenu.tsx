@@ -51,13 +51,13 @@ function getMealPlanAriaLabel(plannedMealCount: number) {
 
 const navigationItemDefinitions = [
   {
-    getAriaLabel: () => 'Go to home',
+    getAriaLabel: () => 'Go to recipes',
     icon: () => (
       <HomeShortcutIcon className="size-[1.5rem] translate-y-[0.12rem] min-[720px]:size-[1.72rem] min-[720px]:translate-y-[0.14rem]" />
     ),
     mobileIcon: () => <HomeShortcutIcon className="size-[1.5rem]" />,
     id: 'home',
-    title: 'Home',
+    title: 'Recipes',
     to: appRoutePaths.home
   },
   {

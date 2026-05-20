@@ -7,9 +7,14 @@ import {
 export function HomeShortcutIcon({ className }: IconProps) {
   return (
     <IconFrame className={className}>
-      <path d="M4.8 10.5 12 4.4l7.2 6.1" strokeWidth={1.7} {...roundedIconStrokeProps} />
-      <path d="M6.7 9.9v8.7h10.6V9.9" strokeWidth={1.7} {...roundedIconStrokeProps} />
-      <path d="M10 18.6v-4.5h4v4.5" strokeWidth={1.7} {...roundedIconStrokeProps} />
+      <path
+        d="M6.2 5.2h9.7a1.9 1.9 0 0 1 1.9 1.9v11.7H7.4a1.9 1.9 0 0 1-1.9-1.9V6.1a.9.9 0 0 1 .7-.9Z"
+        strokeWidth={1.6}
+        {...roundedIconStrokeProps}
+      />
+      <path d="M7.4 18.8a1.9 1.9 0 0 1 0-3.8h10.4" strokeWidth={1.6} {...roundedIconStrokeProps} />
+      <path d="M9.2 8.8h6.1" strokeWidth={1.55} {...roundedIconStrokeProps} />
+      <path d="M9.2 11.5h5.1" strokeWidth={1.55} {...roundedIconStrokeProps} />
     </IconFrame>
   );
 }

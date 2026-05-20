@@ -102,7 +102,7 @@ export function MealPlanPage() {
   const emptyPlanState = (
     <EmptyStateCard
       title="No meals planned yet"
-      description="Add recipes from Home to start building your meal plan."
+      description="Add recipes from the Recipes page to start building your meal plan."
     />
   );
   const emptyHistoryState = (

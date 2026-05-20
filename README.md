@@ -19,9 +19,9 @@ Use `npm run dev` to go back to your normal local data. To refresh the mock snap
 - Browse the recipe catalog with search, pagination, and adult/children audience tabs.
 
   ![Recipe catalog browsing with search, pagination, and audience tabs](docs/recipe-catalog-search-tabs.gif)
-- Create and edit recipes from the home page, including ingredients, tags, nutrition, servings, and notes.
+- Create and edit recipes from the recipes page, including ingredients, tags, nutrition, servings, and notes.
 
-  ![Create and edit recipes on the home page](docs/add-edit-recipe.gif)
+  ![Create and edit recipes on the recipes page](docs/add-edit-recipe.gif)
 - Open recipe details with scaled ingredients, grouped method steps, nutrition, ratings, bookmarks, and optional step timers.
 
   ![Recipe details with scaled ingredients, grouped method steps, nutrition, ratings, bookmarks, and optional step timers](docs/recipe-details.gif)
