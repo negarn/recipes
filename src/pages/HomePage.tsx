@@ -45,11 +45,37 @@ function createIdSlug(value: string) {
     .replace(/^-+|-+$/g, '');
 }
 
-function createRecipeFromPayload(payload: RecipeCreatePayload, recipeId: string) {
+function normalizeIngredientNameForIdMatch(value: string) {
+  return value.trim().toLowerCase().replace(/\s+/g, ' ');
+}
+
+function getReusableIngredientIds(previousRecipe: Recipe | undefined) {
+  const reusableIngredientIds = new Map<string, string[]>();
+
+  previousRecipe?.ingredients.forEach((ingredient) => {
+    const normalizedName = normalizeIngredientNameForIdMatch(ingredient.name);
+    const currentIds = reusableIngredientIds.get(normalizedName) ?? [];
+
+    reusableIngredientIds.set(normalizedName, [...currentIds, ingredient.id]);
+  });
+
+  return reusableIngredientIds;
+}
+
+export function createRecipeFromPayload(
+  payload: RecipeCreatePayload,
+  recipeId: string,
+  previousRecipe?: Recipe
+) {
   const ingredientIds = new Set<string>();
+  const reusableIngredientIds = getReusableIngredientIds(previousRecipe);
 
   const ingredients = payload.ingredients.map((ingredient, ingredientIndex) => {
-    const baseIngredientId = createIdSlug(ingredient.name) || `ingredient-${ingredientIndex + 1}`;
+    const reusableIds =
+      reusableIngredientIds.get(normalizeIngredientNameForIdMatch(ingredient.name)) ?? [];
+    const reusableIngredientId = reusableIds.shift();
+    const baseIngredientId =
+      reusableIngredientId || createIdSlug(ingredient.name) || `ingredient-${ingredientIndex + 1}`;
     let ingredientId = baseIngredientId;
     let duplicateCount = 2;
 
@@ -208,7 +234,7 @@ export function HomePage() {
   function handleRecipeFormSubmit(payload: RecipeCreatePayload) {
     const nextRecipe =
       recipeFormState?.mode === 'edit' && recipeFormState.recipe !== null
-        ? createRecipeFromPayload(payload, recipeFormState.recipe.id)
+        ? createRecipeFromPayload(payload, recipeFormState.recipe.id, recipeFormState.recipe)
         : createRecipeFromPayloadWithUniqueId(
             payload,
             recipes.map((recipe) => recipe.id)
