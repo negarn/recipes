@@ -3,6 +3,7 @@ import {
   fetchRecipeAppDataSnapshot,
   markRecipeAsCooked,
   markMealPlanEntryAsCooked,
+  moveCookedMealHistoryEntry,
   moveMealPlanEntry,
   persistMealPlanRecipe,
   persistDefaultServingSize,
@@ -10,7 +11,8 @@ import {
   removeMealPlanEntry,
   persistRecipeNote,
   persistRecipeRating,
-  persistRecipeServing
+  persistRecipeServing,
+  removeCookedMealHistoryEntry
 } from '../helpers/recipePreferences';
 import {
   createPersistedStateMutationHandler,
@@ -396,6 +398,16 @@ export function useRecipeAppData({
     dirtyKeys: mealPlanMutationDirtyKeys,
     persist: removeMealPlanEntry
   });
+  const handleCookedMealDateChange = createPreferencePersistedStateHandler({
+    applyState: setCookedMealHistoryState,
+    dirtyKeys: ['cookedMealHistory'],
+    persist: moveCookedMealHistoryEntry
+  });
+  const handleCookedMealRemove = createPreferencePersistedStateHandler({
+    applyState: setCookedMealHistoryState,
+    dirtyKeys: ['cookedMealHistory'],
+    persist: removeCookedMealHistoryEntry
+  });
   const handleDefaultServingSizeChange = createPreferencePersistedStateHandler({
     applyState: applyRecipeSettingsState,
     dirtyKeys: ['recipeSettings', 'shoppingListChecks'],
@@ -561,6 +573,8 @@ export function useRecipeAppData({
 
   return {
     cookedMealHistory,
+    handleCookedMealDateChange,
+    handleCookedMealRemove,
     handleDefaultServingSizeChange,
     handleRecipeBookmarkAdd,
     handleRecipeBookmarkTextChange,

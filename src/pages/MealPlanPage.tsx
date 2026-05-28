@@ -30,6 +30,12 @@ type PendingMealPlanRemoval = {
   recipeTitle: string;
 } | null;
 
+type PendingCookedHistoryRemoval = {
+  currentDate: string;
+  entryIndex: number;
+  recipeTitle: string;
+} | null;
+
 type CookedHistoryMonthLabelParts = {
   monthText: string | null;
   yearText: string | null;
@@ -64,9 +70,13 @@ export function MealPlanPage() {
   const location = useLocation();
   const [pendingMealPlanRemoval, setPendingMealPlanRemoval] =
     useState<PendingMealPlanRemoval>(null);
+  const [pendingCookedHistoryRemoval, setPendingCookedHistoryRemoval] =
+    useState<PendingCookedHistoryRemoval>(null);
   const { getRecipeById, hasLoadedRecipes } = useRecipeCatalogContext();
   const {
     cookedMealHistory,
+    handleCookedMealDateChange,
+    handleCookedMealRemove,
     handleMealPlanRecipeDateChange,
     handleMealPlanRecipeMarkCooked,
     handleMealPlanRecipeRemove,
@@ -83,8 +93,10 @@ export function MealPlanPage() {
     markPlannedMealAsCooked,
     mealPlanDays,
     mealPlanPageError,
+    openCookedHistoryDateDialog,
     openMealPlanDateDialog,
     pagedCookedMealDays,
+    removeCookedMeal,
     removePlannedMeal,
     totalCookedHistoryPages,
     updateCookedHistoryPage
@@ -92,6 +104,8 @@ export function MealPlanPage() {
     cookedMealHistory,
     getRecipeById,
     mealPlan,
+    onCookedMealDateChange: handleCookedMealDateChange,
+    onCookedMealRemove: handleCookedMealRemove,
     onMealPlanRecipeDateChange: handleMealPlanRecipeDateChange,
     onMealPlanRecipeMarkCooked: handleMealPlanRecipeMarkCooked,
     onMealPlanRecipeRemove: handleMealPlanRecipeRemove
@@ -124,6 +138,21 @@ export function MealPlanPage() {
 
     if (wasRemoved) {
       setPendingMealPlanRemoval(null);
+    }
+  }
+
+  async function confirmPendingCookedHistoryRemoval() {
+    if (!pendingCookedHistoryRemoval) {
+      return;
+    }
+
+    const wasRemoved = await removeCookedMeal(
+      pendingCookedHistoryRemoval.currentDate,
+      pendingCookedHistoryRemoval.entryIndex
+    );
+
+    if (wasRemoved) {
+      setPendingCookedHistoryRemoval(null);
     }
   }
 
@@ -181,6 +210,29 @@ export function MealPlanPage() {
             createRecipeState={() =>
               createCookedHistoryRecipePageState(cookedHistoryBackLinkPath)
             }
+            renderActions={({ entryIndex }, formattedRecipeTitle) => (
+              <MealPlanRecipeRowActions
+                changeDateLabel={`Change cooked date for ${formattedRecipeTitle}`}
+                formattedRecipeTitle={formattedRecipeTitle}
+                isPending={isMealPlanUpdatePending}
+                onChangeDate={() => {
+                  openCookedHistoryDateDialog(
+                    date,
+                    entryIndex,
+                    formattedRecipeTitle
+                  );
+                }}
+                onRemove={() => {
+                  clearMealPlanPageError();
+                  setPendingCookedHistoryRemoval({
+                    currentDate: date,
+                    entryIndex,
+                    recipeTitle: formattedRecipeTitle
+                  });
+                }}
+                removeLabel={`Remove ${formattedRecipeTitle} from cooked history`}
+              />
+            )}
           />
         ))}
 
@@ -242,6 +294,28 @@ export function MealPlanPage() {
           }}
           onConfirm={() => {
             void confirmPendingMealPlanRemoval();
+          }}
+        />
+      ) : null}
+      {pendingCookedHistoryRemoval ? (
+        <DeleteConfirmationDialog
+          headerLabel="Remove from cooked history"
+          title={`Remove ${pendingCookedHistoryRemoval.recipeTitle}?`}
+          description={
+            <>
+              This will remove <strong>{pendingCookedHistoryRemoval.recipeTitle}</strong> from your
+              cooked history.
+            </>
+          }
+          errorMessage={mealPlanPageError}
+          isBusy={isMealPlanUpdatePending}
+          confirmLabel="Remove meal"
+          busyLabel="Removing..."
+          onCancel={() => {
+            setPendingCookedHistoryRemoval(null);
+          }}
+          onConfirm={() => {
+            void confirmPendingCookedHistoryRemoval();
           }}
         />
       ) : null}

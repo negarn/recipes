@@ -256,6 +256,50 @@ describe('recipePreferencesApi', () => {
     expect(response.body.error).toBe('That recipe could not be found.');
   });
 
+  it('moves and removes cooked meal history entries', async () => {
+    await executeRequest({
+      body: JSON.stringify(recipePayload),
+      method: 'PUT',
+      url: recipePreferenceApiPaths.recipeCatalog
+    });
+
+    await executeRequest({
+      body: JSON.stringify({
+        date: '2026-05-27',
+        recipeId: recipePayload.recipe.id
+      }),
+      method: 'PUT',
+      url: recipePreferenceApiPaths.cookedMealHistoryEntries
+    });
+
+    const moveResponse = await executeRequest({
+      body: JSON.stringify({
+        currentDate: '2026-05-27',
+        entryIndex: 0,
+        nextDate: '2026-05-28'
+      }),
+      method: 'PUT',
+      url: recipePreferenceApiPaths.cookedMealHistoryEntriesMove
+    });
+
+    expect(moveResponse.statusCode).toBe(200);
+    expect(moveResponse.body.cookedMealHistory).toEqual({
+      '2026-05-28': [recipePayload.recipe.id]
+    });
+
+    const deleteResponse = await executeRequest({
+      body: JSON.stringify({
+        currentDate: '2026-05-28',
+        entryIndex: 0
+      }),
+      method: 'DELETE',
+      url: recipePreferenceApiPaths.cookedMealHistoryEntries
+    });
+
+    expect(deleteResponse.statusCode).toBe(200);
+    expect(deleteResponse.body.cookedMealHistory).toEqual({});
+  });
+
   it('stores recipes in the unified recipe catalog file', async () => {
     const response = await executeRequest({
       body: JSON.stringify(recipePayload),

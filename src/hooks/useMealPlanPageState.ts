@@ -24,6 +24,8 @@ type ActiveMealPlanEntry = {
 };
 
 const DEFAULT_MEAL_PLAN_ERROR_MESSAGE = 'Could not update meal plan.';
+const COOKED_HISTORY_ERROR_MESSAGE = 'Could not update cooked meal history.';
+const EARLIEST_COOKED_HISTORY_DATE = '1900-01-01';
 
 type CookedHistoryMonthPage = {
   dateLabel: string;
@@ -67,6 +69,8 @@ export function useMealPlanPageState({
   cookedMealHistory,
   getRecipeById,
   mealPlan,
+  onCookedMealDateChange,
+  onCookedMealRemove,
   onMealPlanRecipeDateChange,
   onMealPlanRecipeMarkCooked,
   onMealPlanRecipeRemove
@@ -74,6 +78,12 @@ export function useMealPlanPageState({
   cookedMealHistory: CookedMealHistoryMap;
   getRecipeById: (recipeId: string) => Recipe | undefined;
   mealPlan: MealPlanMap;
+  onCookedMealDateChange: (
+    currentDate: string,
+    entryIndex: number,
+    nextDate: string
+  ) => Promise<void>;
+  onCookedMealRemove: (currentDate: string, entryIndex: number) => Promise<void>;
   onMealPlanRecipeDateChange: (
     currentDate: string,
     entryIndex: number,
@@ -103,6 +113,7 @@ export function useMealPlanPageState({
   const pagedCookedMealDays = activeCookedHistoryMonthPage?.days ?? [];
   const removeMealPlanEntryAction = useAsyncAction();
   const markMealPlanEntryAsCookedAction = useAsyncAction();
+  const removeCookedMealHistoryEntryAction = useAsyncAction();
   const mealPlanDateDialog = useMealPlanPickerDialog<ActiveMealPlanEntry>({
     dateActionLabelPrefix: 'Change to',
     errorMessage: DEFAULT_MEAL_PLAN_ERROR_MESSAGE,
@@ -112,14 +123,26 @@ export function useMealPlanPageState({
     onSelectDate: (selection, nextDate) =>
       onMealPlanRecipeDateChange(selection.currentDate, selection.entryIndex, nextDate)
   });
-  const activeMealPlanEntry = mealPlanDateDialog.selection;
+  const cookedHistoryDateDialog = useMealPlanPickerDialog<ActiveMealPlanEntry>({
+    dateActionLabelPrefix: 'Change to',
+    errorMessage: COOKED_HISTORY_ERROR_MESSAGE,
+    formatTitle: (selection) => selection.recipeTitle,
+    headerLabel: 'Change Cooked Date',
+    minDate: EARLIEST_COOKED_HISTORY_DATE,
+    onSelectDate: (selection, nextDate) =>
+      onCookedMealDateChange(selection.currentDate, selection.entryIndex, nextDate)
+  });
+  const activeMealPlanEntry = mealPlanDateDialog.selection ?? cookedHistoryDateDialog.selection;
   const mealPlanPendingActions = useAsyncActionGroup([
     mealPlanDateDialog.action,
+    cookedHistoryDateDialog.action,
     removeMealPlanEntryAction,
+    removeCookedMealHistoryEntryAction,
     markMealPlanEntryAsCookedAction
   ]);
   const mealPlanMutationActions = useAsyncActionGroup([
     removeMealPlanEntryAction,
+    removeCookedMealHistoryEntryAction,
     markMealPlanEntryAsCookedAction
   ]);
   const isMealPlanUpdatePending = mealPlanPendingActions.isAnyPending;
@@ -147,12 +170,39 @@ export function useMealPlanPageState({
     );
   }
 
+  function openCookedHistoryDateDialog(
+    currentDate: string,
+    entryIndex: number,
+    recipeTitle: string
+  ) {
+    const parsedCurrentDate = parseLocalDateString(currentDate);
+    clearMealPlanPageError();
+
+    cookedHistoryDateDialog.open(
+      {
+        currentDate,
+        entryIndex,
+        recipeTitle
+      },
+      parsedCurrentDate ?? new Date()
+    );
+  }
+
   async function removePlannedMeal(currentDate: string, entryIndex: number) {
     clearMealPlanPageError();
 
     return removeMealPlanEntryAction.run(
       () => onMealPlanRecipeRemove(currentDate, entryIndex),
       DEFAULT_MEAL_PLAN_ERROR_MESSAGE
+    );
+  }
+
+  async function removeCookedMeal(currentDate: string, entryIndex: number) {
+    clearMealPlanPageError();
+
+    return removeCookedMealHistoryEntryAction.run(
+      () => onCookedMealRemove(currentDate, entryIndex),
+      COOKED_HISTORY_ERROR_MESSAGE
     );
   }
 
@@ -211,14 +261,16 @@ export function useMealPlanPageState({
     activeTab,
     cookedHistoryMonthLabel: activeCookedHistoryMonthPage?.dateLabel ?? null,
     cookedHistoryPage,
-    dialogProps: mealPlanDateDialog.dialogProps,
+    dialogProps: mealPlanDateDialog.dialogProps ?? cookedHistoryDateDialog.dialogProps,
     isMealPlanUpdatePending,
     clearMealPlanPageError,
     markPlannedMealAsCooked,
     mealPlanDays,
     mealPlanPageError,
+    openCookedHistoryDateDialog,
     openMealPlanDateDialog,
     pagedCookedMealDays,
+    removeCookedMeal,
     removePlannedMeal,
     totalCookedHistoryPages,
     updateCookedHistoryPage

@@ -85,6 +85,7 @@ type MealPlanEntryReference = {
   currentDate: string;
   entryIndex: number;
 };
+type DatedRecipeEntryReference = MealPlanEntryReference;
 type RequestBodyParseResult<T> =
   | { ok: true; value: T }
   | { ok: false; message: string };
@@ -458,18 +459,7 @@ function getMealPlanEntryRecipeId(
   currentDate: string,
   entryIndex: number
 ) {
-  const mealPlanEntries = mealPlan[currentDate];
-
-  if (
-    !mealPlanEntries ||
-    !Number.isSafeInteger(entryIndex) ||
-    entryIndex < 0 ||
-    entryIndex >= mealPlanEntries.length
-  ) {
-    return null;
-  }
-
-  return mealPlanEntries[entryIndex];
+  return getDatedRecipeEntryRecipeId(mealPlan, currentDate, entryIndex);
 }
 
 function removeMealPlanEntryAt(
@@ -477,7 +467,15 @@ function removeMealPlanEntryAt(
   currentDate: string,
   entryIndex: number
 ) {
-  const mealPlanEntries = mealPlan[currentDate];
+  removeDatedRecipeEntryAt(mealPlan, currentDate, entryIndex);
+}
+
+function removeDatedRecipeEntryAt(
+  datedRecipeMap: DatedRecipeMap,
+  currentDate: string,
+  entryIndex: number
+) {
+  const mealPlanEntries = datedRecipeMap[currentDate];
 
   if (!mealPlanEntries) {
     return;
@@ -486,14 +484,37 @@ function removeMealPlanEntryAt(
   const nextMealPlanEntries = mealPlanEntries.filter((_, index) => index !== entryIndex);
 
   if (nextMealPlanEntries.length) {
-    mealPlan[currentDate] = nextMealPlanEntries;
+    datedRecipeMap[currentDate] = nextMealPlanEntries;
   } else {
-    delete mealPlan[currentDate];
+    delete datedRecipeMap[currentDate];
   }
+}
+
+function getDatedRecipeEntryRecipeId(
+  datedRecipeMap: DatedRecipeMap,
+  currentDate: string,
+  entryIndex: number
+) {
+  const entries = datedRecipeMap[currentDate];
+
+  if (
+    !entries ||
+    !Number.isSafeInteger(entryIndex) ||
+    entryIndex < 0 ||
+    entryIndex >= entries.length
+  ) {
+    return null;
+  }
+
+  return entries[entryIndex];
 }
 
 function sendMealPlanEntryNotFound(response: ServerResponse) {
   sendJson(response, 404, { error: 'That meal plan entry could not be found.' });
+}
+
+function sendCookedMealHistoryEntryNotFound(response: ServerResponse) {
+  sendJson(response, 404, { error: 'That cooked meal history entry could not be found.' });
 }
 
 async function loadExistingMealPlanEntry({
@@ -517,6 +538,29 @@ async function loadExistingMealPlanEntry({
 
 type ExistingMealPlanEntry = NonNullable<
   Awaited<ReturnType<typeof loadExistingMealPlanEntry>>
+>;
+
+async function loadExistingCookedMealHistoryEntry({
+  currentDate,
+  entryIndex
+}: DatedRecipeEntryReference) {
+  const cookedMealHistory = await readPersistedStore(cookedMealHistoryStore);
+  const recipeId = getDatedRecipeEntryRecipeId(cookedMealHistory, currentDate, entryIndex);
+
+  if (!recipeId) {
+    return null;
+  }
+
+  return {
+    cookedMealHistory,
+    currentDate,
+    entryIndex,
+    recipeId
+  };
+}
+
+type ExistingCookedMealHistoryEntry = NonNullable<
+  Awaited<ReturnType<typeof loadExistingCookedMealHistoryEntry>>
 >;
 
 function hasRequestBodyKey(
@@ -612,6 +656,46 @@ function parseMealPlanEntryMoveRequestBody(
   const { nextDate } = value as Partial<Record<'nextDate', unknown>>;
 
   if (!isAllowedMealPlanDate(nextDate)) {
+    return {
+      ok: false,
+      message: invalidBodyMessage
+    };
+  }
+
+  return {
+    ok: true,
+    value: {
+      currentDate,
+      entryIndex,
+      nextDate
+    }
+  };
+}
+
+function parseCookedMealHistoryEntryMoveRequestBody(
+  value: unknown
+): RequestBodyParseResult<{
+  currentDate: string;
+  entryIndex: number;
+  nextDate: string;
+}> {
+  const invalidBodyMessage = 'Expected a valid current date, next date, and entry index.';
+  const parsedEntryReference = parseMealPlanEntryReferenceRequestBodyWithMessage(
+    value,
+    invalidBodyMessage
+  );
+
+  if (parsedEntryReference.ok === false) {
+    return {
+      ok: false,
+      message: parsedEntryReference.message
+    };
+  }
+
+  const { currentDate, entryIndex } = parsedEntryReference.value;
+  const { nextDate } = value as Partial<Record<'nextDate', unknown>>;
+
+  if (!isValidMealPlanDate(nextDate)) {
     return {
       ok: false,
       message: invalidBodyMessage
@@ -994,6 +1078,103 @@ function createMealPlanEntryReferenceMutationRoute({
   });
 }
 
+async function handleCookedMealHistoryEntryMutation<TParsedBody>({
+  getEntryReference,
+  mutateEntry,
+  parseBody,
+  request,
+  response
+}: {
+  getEntryReference: (parsedBody: TParsedBody) => DatedRecipeEntryReference;
+  mutateEntry: (
+    existingCookedMealHistoryEntry: ExistingCookedMealHistoryEntry,
+    parsedBody: TParsedBody
+  ) => Promise<void>;
+  parseBody: (value: unknown) => RequestBodyParseResult<TParsedBody>;
+  request: IncomingMessage;
+  response: ServerResponse;
+}) {
+  const parsedBody = await readParsedRequestBodyOrSendBadRequest({
+    request,
+    response,
+    parseBody
+  });
+
+  if (parsedBody === null) {
+    return;
+  }
+
+  await queuePersistedRecipeDataMutation(async () => {
+    const existingCookedMealHistoryEntry = await loadExistingCookedMealHistoryEntry(
+      getEntryReference(parsedBody)
+    );
+
+    if (!existingCookedMealHistoryEntry) {
+      sendCookedMealHistoryEntryNotFound(response);
+      return;
+    }
+
+    await mutateEntry(existingCookedMealHistoryEntry, parsedBody);
+  });
+}
+
+function getDatedRecipeEntryReference<TParsedBody extends DatedRecipeEntryReference>({
+  currentDate,
+  entryIndex
+}: TParsedBody): DatedRecipeEntryReference {
+  return {
+    currentDate,
+    entryIndex
+  };
+}
+
+function createCookedMealHistoryEntryMutationRoute<TParsedBody>({
+  getEntryReference,
+  mutateEntry,
+  parseBody
+}: {
+  getEntryReference: (parsedBody: TParsedBody) => DatedRecipeEntryReference;
+  mutateEntry: (
+    existingCookedMealHistoryEntry: ExistingCookedMealHistoryEntry,
+    parsedBody: TParsedBody,
+    response: ServerResponse
+  ) => Promise<void>;
+  parseBody: (value: unknown) => RequestBodyParseResult<TParsedBody>;
+}) {
+  return async ({
+    request,
+    response
+  }: {
+    request: IncomingMessage;
+    response: ServerResponse;
+  }) => {
+    await handleCookedMealHistoryEntryMutation({
+      getEntryReference,
+      mutateEntry: (existingCookedMealHistoryEntry, parsedBody) =>
+        mutateEntry(existingCookedMealHistoryEntry, parsedBody, response),
+      parseBody,
+      request,
+      response
+    });
+  };
+}
+
+function createCookedMealHistoryEntryReferenceMutationRoute({
+  mutateEntry
+}: {
+  mutateEntry: (
+    existingCookedMealHistoryEntry: ExistingCookedMealHistoryEntry,
+    response: ServerResponse
+  ) => Promise<void>;
+}) {
+  return createCookedMealHistoryEntryMutationRoute({
+    parseBody: parseMealPlanEntryReferenceRequestBody,
+    getEntryReference: getDatedRecipeEntryReference,
+    mutateEntry: async (existingCookedMealHistoryEntry, _parsedBody, response) =>
+      mutateEntry(existingCookedMealHistoryEntry, response)
+  });
+}
+
 function createNormalizedStoreWriteRoute<TStore, K extends RecipePreferenceResponseKey>({
   missingBodyErrorMessage,
   parseBody,
@@ -1190,6 +1371,34 @@ async function handleCookedMealHistoryEntryCreateRoute({
   });
 }
 
+const handleCookedMealHistoryEntryMoveRoute = createCookedMealHistoryEntryMutationRoute({
+  parseBody: parseCookedMealHistoryEntryMoveRequestBody,
+  getEntryReference: getDatedRecipeEntryReference,
+  mutateEntry: async (
+    { cookedMealHistory, currentDate, entryIndex, recipeId },
+    { nextDate },
+    response
+  ) => {
+    if (currentDate === nextDate) {
+      sendJson(response, 200, { cookedMealHistory });
+      return;
+    }
+
+    removeDatedRecipeEntryAt(cookedMealHistory, currentDate, entryIndex);
+    appendDatedRecipeEntry(cookedMealHistory, nextDate, recipeId);
+
+    await writePersistedStoreAndSend(cookedMealHistoryStore, cookedMealHistory, response);
+  }
+});
+
+const handleCookedMealHistoryEntryDeleteRoute =
+  createCookedMealHistoryEntryReferenceMutationRoute({
+    mutateEntry: async ({ cookedMealHistory, currentDate, entryIndex }, response) => {
+      removeDatedRecipeEntryAt(cookedMealHistory, currentDate, entryIndex);
+      await writePersistedStoreAndSend(cookedMealHistoryStore, cookedMealHistory, response);
+    }
+  });
+
 const handleMealPlanEntryMoveRoute = createMealPlanEntryMutationRoute({
   parseBody: parseMealPlanEntryMoveRequestBody,
   getEntryReference: getMealPlanEntryReference,
@@ -1363,6 +1572,16 @@ const exactRecipePreferenceRouteHandlers: ExactRecipePreferenceRouteHandler[] = 
     method: 'PUT',
     path: recipePreferenceApiPaths.cookedMealHistoryEntries,
     handle: handleCookedMealHistoryEntryCreateRoute
+  }),
+  createExactRecipePreferenceRouteHandler({
+    method: 'PUT',
+    path: recipePreferenceApiPaths.cookedMealHistoryEntriesMove,
+    handle: handleCookedMealHistoryEntryMoveRoute
+  }),
+  createExactRecipePreferenceRouteHandler({
+    method: 'DELETE',
+    path: recipePreferenceApiPaths.cookedMealHistoryEntries,
+    handle: handleCookedMealHistoryEntryDeleteRoute
   }),
   createExactRecipePreferenceRouteHandler({
     method: 'PUT',

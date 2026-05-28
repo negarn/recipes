@@ -1,6 +1,7 @@
 export const recipePreferenceApiPaths = {
   cookedMealHistory: '/api/cooked-meal-history',
   cookedMealHistoryEntries: '/api/cooked-meal-history/entries',
+  cookedMealHistoryEntriesMove: '/api/cooked-meal-history/entries/move',
   mealPlan: '/api/meal-plan',
   mealPlanEntries: '/api/meal-plan/entries',
   mealPlanEntriesMarkCooked: '/api/meal-plan/entries/mark-cooked',

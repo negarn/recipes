@@ -17,6 +17,8 @@ type RecipeAppDataValue = ReturnType<typeof useRecipeAppData>;
 
 type RecipeAppActionHandlers = Pick<
   RecipeAppDataValue,
+  | 'handleCookedMealDateChange'
+  | 'handleCookedMealRemove'
   | 'handleDefaultServingSizeChange'
   | 'handleMealPlanRecipeAdd'
   | 'handleMealPlanRecipeDateChange'
@@ -36,6 +38,8 @@ type RecipeAppActionHandlers = Pick<
 
 type MealPlanDataContextValue = {
   cookedMealHistory: RecipeAppDataValue['cookedMealHistory'];
+  handleCookedMealDateChange: RecipeAppActionHandlers['handleCookedMealDateChange'];
+  handleCookedMealRemove: RecipeAppActionHandlers['handleCookedMealRemove'];
   handleMealPlanRecipeAdd: RecipeAppActionHandlers['handleMealPlanRecipeAdd'];
   handleMealPlanRecipeDateChange: RecipeAppActionHandlers['handleMealPlanRecipeDateChange'];
   handleMealPlanRecipeMarkCooked: RecipeAppActionHandlers['handleMealPlanRecipeMarkCooked'];
@@ -102,6 +106,8 @@ function useRequiredContext<T>(contextValue: T | null, hookName: string): T {
 
 function getRecipeAppActionHandlers(recipeAppData: RecipeAppDataValue): RecipeAppActionHandlers {
   return {
+    handleCookedMealDateChange: recipeAppData.handleCookedMealDateChange,
+    handleCookedMealRemove: recipeAppData.handleCookedMealRemove,
     handleDefaultServingSizeChange: recipeAppData.handleDefaultServingSizeChange,
     handleMealPlanRecipeAdd: recipeAppData.handleMealPlanRecipeAdd,
     handleMealPlanRecipeDateChange: recipeAppData.handleMealPlanRecipeDateChange,
@@ -189,6 +195,10 @@ export function RecipeAppDataProvider({
     () => ({
       handleDefaultServingSizeChange: (...args) =>
         actionHandlersRef.current.handleDefaultServingSizeChange(...args),
+      handleCookedMealDateChange: (...args) =>
+        actionHandlersRef.current.handleCookedMealDateChange(...args),
+      handleCookedMealRemove: (...args) =>
+        actionHandlersRef.current.handleCookedMealRemove(...args),
       handleMealPlanRecipeAdd: (...args) => actionHandlersRef.current.handleMealPlanRecipeAdd(...args),
       handleMealPlanRecipeDateChange: (...args) =>
         actionHandlersRef.current.handleMealPlanRecipeDateChange(...args),
@@ -232,6 +242,8 @@ export function RecipeAppDataProvider({
   const mealPlanDataValue = useMemo(
     () => ({
       cookedMealHistory: recipeAppData.cookedMealHistory,
+      handleCookedMealDateChange: stableActionHandlers.handleCookedMealDateChange,
+      handleCookedMealRemove: stableActionHandlers.handleCookedMealRemove,
       handleMealPlanRecipeAdd: stableActionHandlers.handleMealPlanRecipeAdd,
       handleMealPlanRecipeDateChange: stableActionHandlers.handleMealPlanRecipeDateChange,
       handleMealPlanRecipeMarkCooked: stableActionHandlers.handleMealPlanRecipeMarkCooked,

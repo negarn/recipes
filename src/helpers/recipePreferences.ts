@@ -30,6 +30,7 @@ import type { Recipe } from '../types/recipe';
 
 const SAVE_MEAL_PLAN_ERROR_MESSAGE = 'Could not save meal plan.';
 const UPDATE_MEAL_PLAN_ERROR_MESSAGE = 'Could not update meal plan.';
+const UPDATE_COOKED_MEAL_HISTORY_ERROR_MESSAGE = 'Could not update cooked meal history.';
 
 async function requestRecipePreferencePayload({
   path,
@@ -217,6 +218,27 @@ function requestMealPlanMutation({
   });
 }
 
+function requestCookedMealHistoryMutation({
+  body,
+  errorMessage = UPDATE_COOKED_MEAL_HISTORY_ERROR_MESSAGE,
+  method = 'PUT',
+  path
+}: {
+  body: unknown;
+  errorMessage?: string;
+  method?: 'DELETE' | 'PUT';
+  path: string;
+}) {
+  return requestRecipePreference({
+    path,
+    method,
+    body,
+    responseKey: 'cookedMealHistory',
+    normalize: normalizeCookedMealHistory,
+    errorMessage
+  });
+}
+
 export async function fetchRecipeAppDataSnapshot({
   onError = console.error
 }: {
@@ -294,17 +316,41 @@ export async function markMealPlanEntryAsCooked(currentDate: string, entryIndex:
 
 export async function markRecipeAsCooked(recipeId: string, date: string) {
   if (!isValidMealPlanDate(date)) {
-    throw new Error('Could not update cooked meal history.');
+    throw new Error(UPDATE_COOKED_MEAL_HISTORY_ERROR_MESSAGE);
   }
 
-  const payload = await requestRecipePreferencePayload({
+  return requestCookedMealHistoryMutation({
     path: recipePreferenceApiPaths.cookedMealHistoryEntries,
     method: 'PUT',
     body: { date, recipeId },
-    errorMessage: 'Could not update cooked meal history.'
+    errorMessage: UPDATE_COOKED_MEAL_HISTORY_ERROR_MESSAGE
   });
+}
 
-  return normalizeCookedMealHistory(payload.cookedMealHistory);
+export async function moveCookedMealHistoryEntry(
+  currentDate: string,
+  entryIndex: number,
+  nextDate: string
+) {
+  if (!isValidMealPlanDate(nextDate)) {
+    throw new Error(UPDATE_COOKED_MEAL_HISTORY_ERROR_MESSAGE);
+  }
+
+  return requestCookedMealHistoryMutation({
+    path: recipePreferenceApiPaths.cookedMealHistoryEntriesMove,
+    body: { currentDate, entryIndex, nextDate }
+  });
+}
+
+export async function removeCookedMealHistoryEntry(
+  currentDate: string,
+  entryIndex: number
+) {
+  return requestCookedMealHistoryMutation({
+    path: recipePreferenceApiPaths.cookedMealHistoryEntries,
+    method: 'DELETE',
+    body: { currentDate, entryIndex }
+  });
 }
 
 export async function persistRecipeRating(
