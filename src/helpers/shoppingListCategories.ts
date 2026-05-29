@@ -48,13 +48,20 @@ const shoppingListCategoryMatchers: Array<{
   },
   {
     categoryId: 'pantry',
-    keywords: ['beef broth', 'beef stock cube', 'chicken stock cube', 'tinned corn']
+    keywords: [
+      'beef broth',
+      'beef stock cube',
+      'chicken broth',
+      'chicken stock cube',
+      'tinned corn'
+    ]
   },
   {
     categoryId: 'fruit-veg',
     keywords: [
       'bell pepper',
       'bean sprout',
+      'beef tomato',
       'cilantro',
       'fresh basil',
       'fresh chive',
@@ -185,6 +192,7 @@ const shoppingListCategoryMatchers: Array<{
       'garlic powder',
       'garam masala',
       'mint',
+      'mustard seed',
       'nutmeg',
       'oregano',
       'paprika',

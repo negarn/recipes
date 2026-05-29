@@ -263,7 +263,15 @@ function getShoppingListSourceKey(
   entryIndex: number,
   ingredientId: string
 ) {
-  return `${date}:${recipeId}:${entryIndex}:${ingredientId}`;
+  return `${getShoppingListSourceScopeKey(date, recipeId, entryIndex)}:${ingredientId}`;
+}
+
+function getShoppingListSourceScopeKey(date: string, recipeId: string, entryIndex: number) {
+  return `${date}:${recipeId}:${entryIndex}`;
+}
+
+function readShoppingListSourceScopeKey(sourceKey: string) {
+  return sourceKey.split(':').slice(0, 3).join(':');
 }
 
 function appendMapArrayValue<K, V>(map: Map<K, V[]>, key: K, ...values: V[]) {
@@ -387,15 +395,23 @@ function buildCheckedSourceKeysByItemKey({
   shoppingListCustomItems: ShoppingListCustomItemList;
 }) {
   const sourceKeysByItemKey = new Map<string, Set<string>>();
+  const sourceKeysByScopeKeyByItemKey = new Map<string, Map<string, string[]>>();
 
   forEachContributionGroup(contributionsByItemKey, (firstContribution, contributions) => {
     const sourceKeys = new Set<string>();
+    const sourceKeysByScopeKey = new Map<string, string[]>();
 
     contributions.forEach(({ source }) => {
       sourceKeys.add(source.sourceKey);
+      appendMapArrayValue(
+        sourceKeysByScopeKey,
+        readShoppingListSourceScopeKey(source.sourceKey),
+        source.sourceKey
+      );
     });
 
     sourceKeysByItemKey.set(firstContribution.itemKey, sourceKeys);
+    sourceKeysByScopeKeyByItemKey.set(firstContribution.itemKey, sourceKeysByScopeKey);
   });
 
   shoppingListCustomItems.forEach((shoppingListCustomItem) => {
@@ -407,8 +423,9 @@ function buildCheckedSourceKeysByItemKey({
 
   Object.entries(shoppingListChecks).forEach(([storedItemKey, checkedSourceKeys]) => {
     const sourceKeys = sourceKeysByItemKey.get(storedItemKey);
+    const sourceKeysByScopeKey = sourceKeysByScopeKeyByItemKey.get(storedItemKey);
 
-    if (!sourceKeys) {
+    if (!sourceKeys || !sourceKeysByScopeKey) {
       return;
     }
 
@@ -418,6 +435,14 @@ function buildCheckedSourceKeysByItemKey({
     checkedSourceKeys.forEach((sourceKey) => {
       if (sourceKeys.has(sourceKey)) {
         nextCheckedSourceKeys.add(sourceKey);
+        return;
+      }
+
+      const sourceScopeKey = readShoppingListSourceScopeKey(sourceKey);
+      const replacementSourceKeys = sourceKeysByScopeKey.get(sourceScopeKey) ?? [];
+
+      if (replacementSourceKeys.length === 1) {
+        nextCheckedSourceKeys.add(replacementSourceKeys[0]);
       }
     });
 

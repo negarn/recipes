@@ -126,6 +126,57 @@ describe('shopping list derivation', () => {
     expect(checkedItem.isChecked).toBe(true);
   });
 
+  it('preserves checked items when a recipe edit changes an ingredient source id', () => {
+    const initialRecipe = createRecipeWithSingleScalableIngredient({
+      id: 'recipe-source-id-change',
+      ingredientId: 'old-tomato-id',
+      ingredientName: 'Beef tomato',
+      quantity: 2,
+      unit: { singular: 'x' }
+    });
+    const editedRecipe = createRecipeWithSingleScalableIngredient({
+      id: initialRecipe.id,
+      ingredientId: 'new-tomato-id',
+      ingredientName: 'Beef tomato',
+      quantity: 2,
+      unit: { singular: 'x' }
+    });
+    const mealPlan = { '2026-04-11': [initialRecipe.id] };
+    const initialSections = deriveShoppingList({
+      getRecipeById: createGetRecipeById([initialRecipe]),
+      mealPlan,
+      recipeServings: {},
+      recipeSettings: {},
+      shoppingListChecks: {},
+      shoppingListCustomItems: []
+    });
+    const initialItem = getOnlyShoppingListItem(initialSections[0].items);
+    const editedSections = deriveShoppingList({
+      getRecipeById: createGetRecipeById([editedRecipe]),
+      mealPlan,
+      recipeServings: {},
+      recipeSettings: {},
+      shoppingListChecks: {},
+      shoppingListCustomItems: []
+    });
+    const editedItem = getOnlyShoppingListItem(editedSections[0].items);
+
+    const reconciledChecks = reconcileShoppingListChecks({
+      getRecipeById: createGetRecipeById([editedRecipe]),
+      mealPlan,
+      recipeServings: {},
+      recipeSettings: {},
+      shoppingListChecks: {
+        [initialItem.itemKey]: [initialItem.checkSourceKeys[0]]
+      },
+      shoppingListCustomItems: []
+    });
+
+    expect(reconciledChecks).toEqual({
+      [editedItem.itemKey]: [editedItem.checkSourceKeys[0]]
+    });
+  });
+
   it('drops stale checks when recipes are no longer resolvable', () => {
     const nextChecks = reconcileShoppingListChecks({
       getRecipeById: createGetRecipeById([]),
