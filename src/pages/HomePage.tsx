@@ -135,6 +135,10 @@ function readHomePageLocationState(value: unknown) {
     : null;
 }
 
+function logRecipePreferenceSaveError(error: unknown) {
+  console.error(error);
+}
+
 export function HomePage() {
   const navigate = useNavigate();
   const location = useLocation();
@@ -232,9 +236,13 @@ export function HomePage() {
   }
 
   function handleRecipeFormSubmit(payload: RecipeCreatePayload) {
-    const nextRecipe =
+    const editedRecipe =
       recipeFormState?.mode === 'edit' && recipeFormState.recipe !== null
-        ? createRecipeFromPayload(payload, recipeFormState.recipe.id, recipeFormState.recipe)
+        ? recipeFormState.recipe
+        : null;
+    const nextRecipe =
+      editedRecipe !== null
+        ? createRecipeFromPayload(payload, editedRecipe.id, editedRecipe)
         : createRecipeFromPayloadWithUniqueId(
             payload,
             recipes.map((recipe) => recipe.id)
@@ -243,15 +251,19 @@ export function HomePage() {
     void recipeCreateAction.run(
       async () => {
         await handleRecipeAdd(nextRecipe);
-        if (recipeFormState?.mode === 'edit') {
-          await handleRecipeRatingChange(nextRecipe.id, payload.rating ?? null);
-          await handleRecipeNoteChange(nextRecipe.id, payload.note);
-        } else {
-          await handleRecipeServingChange(nextRecipe.id, payload.servings);
 
-          if (payload.note) {
-            await handleRecipeNoteChange(nextRecipe.id, payload.note);
-          }
+        if (editedRecipe !== null) {
+          void Promise.all([
+            handleRecipeRatingChange(nextRecipe.id, payload.rating ?? null),
+            handleRecipeNoteChange(nextRecipe.id, payload.note)
+          ]).catch(logRecipePreferenceSaveError);
+          return;
+        }
+
+        await handleRecipeServingChange(nextRecipe.id, payload.servings);
+
+        if (payload.note) {
+          await handleRecipeNoteChange(nextRecipe.id, payload.note);
         }
       },
       'Could not save recipe.',
