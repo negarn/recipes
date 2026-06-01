@@ -10,6 +10,7 @@ import {
 } from 'react';
 import { countKnownDatedRecipes } from '../helpers/mealPlanData';
 import { fetchRecipeCatalog, persistRecipeCatalog } from '../helpers/recipePreferences';
+import { CLOUD_SYNC_APP_DATA_REFRESH_EVENT } from '../hooks/useCloudSyncStatus';
 import { useRecipeAppData } from '../hooks/useRecipeAppData';
 import type { Recipe } from '../types/recipe';
 
@@ -135,6 +136,7 @@ export function RecipeAppDataProvider({
 }) {
   const [recipes, setRecipes] = useState<Recipe[]>([]);
   const [hasLoadedRecipes, setHasLoadedRecipes] = useState(false);
+  const [cloudSyncRefreshToken, setCloudSyncRefreshToken] = useState(0);
   const recipeById = useMemo(
     () => new Map(recipes.map((recipe) => [recipe.id, recipe] as const)),
     [recipes]
@@ -145,7 +147,11 @@ export function RecipeAppDataProvider({
     },
     [recipeById]
   );
-  const recipeAppData = useRecipeAppData({ getRecipeById });
+  const recipeAppData = useRecipeAppData({
+    cloudSyncRefreshToken,
+    getRecipeById,
+    hasLoadedRecipes
+  });
   const handleRecipeAdd = useCallback(async (recipe: Recipe) => {
     const nextRecipes = await persistRecipeCatalog(recipe);
     setRecipes(nextRecipes);
@@ -178,6 +184,38 @@ export function RecipeAppDataProvider({
 
     return () => {
       isCurrent = false;
+    };
+  }, [loadRecipes]);
+
+  useEffect(() => {
+    let isCurrent = true;
+
+    function handleCloudSyncAppDataRefresh() {
+      void (async () => {
+        try {
+          const loadedRecipes = await loadRecipes();
+
+          if (!isCurrent) {
+            return;
+          }
+
+          setRecipes(loadedRecipes);
+          setHasLoadedRecipes(true);
+          setCloudSyncRefreshToken((currentToken) => currentToken + 1);
+        } catch (error) {
+          console.error(error);
+        }
+      })();
+    }
+
+    window.addEventListener(CLOUD_SYNC_APP_DATA_REFRESH_EVENT, handleCloudSyncAppDataRefresh);
+
+    return () => {
+      isCurrent = false;
+      window.removeEventListener(
+        CLOUD_SYNC_APP_DATA_REFRESH_EVENT,
+        handleCloudSyncAppDataRefresh
+      );
     };
   }, [loadRecipes]);
 

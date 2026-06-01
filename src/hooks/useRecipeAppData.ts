@@ -29,7 +29,6 @@ import {
 } from '../helpers/recipePreferenceData';
 import { reconcileShoppingListChecks } from '../helpers/shoppingList';
 import { useAsyncQueueRef } from './useAsyncQueueRef';
-import { CLOUD_SYNC_APP_DATA_REFRESH_EVENT } from './useCloudSyncStatus';
 import { useRefBackedState } from './useRefBackedState';
 import { useShoppingListState } from './useShoppingListState';
 import type {
@@ -51,8 +50,12 @@ function logError(error: unknown) {
 type LoadedRecipeAppData = RecipeAppPreferenceValueMap;
 
 export function useRecipeAppData({
+  cloudSyncRefreshToken = 0,
+  hasLoadedRecipes,
   getRecipeById
 }: {
+  cloudSyncRefreshToken?: number;
+  hasLoadedRecipes: boolean;
   getRecipeById: (recipeId: string) => Recipe | undefined;
 }) {
   const [cookedMealHistory, setCookedMealHistoryState, cookedMealHistoryRef] =
@@ -463,14 +466,16 @@ export function useRecipeAppData({
         currentRecipeAppData.shoppingListCustomItems
       )
     } satisfies LoadedRecipeAppData;
-    const nextShoppingListChecks = reconcileShoppingListChecks({
-      getRecipeById,
-      mealPlan: nextRecipeAppData.mealPlan,
-      recipeServings: nextRecipeAppData.recipeServings,
-      recipeSettings: nextRecipeAppData.recipeSettings,
-      shoppingListChecks: nextRecipeAppData.shoppingListChecks,
-      shoppingListCustomItems: nextRecipeAppData.shoppingListCustomItems
-    });
+    const nextShoppingListChecks = hasLoadedRecipes
+      ? reconcileShoppingListChecks({
+          getRecipeById,
+          mealPlan: nextRecipeAppData.mealPlan,
+          recipeServings: nextRecipeAppData.recipeServings,
+          recipeSettings: nextRecipeAppData.recipeSettings,
+          shoppingListChecks: nextRecipeAppData.shoppingListChecks,
+          shoppingListCustomItems: nextRecipeAppData.shoppingListCustomItems
+        })
+      : nextRecipeAppData.shoppingListChecks;
 
     setCookedMealHistoryState(nextRecipeAppData.cookedMealHistory);
     setMealPlanState(nextRecipeAppData.mealPlan);
@@ -512,29 +517,50 @@ export function useRecipeAppData({
       applyLoadedRecipeAppData(loadedRecipeAppData);
     }
 
-    function handleCloudSyncAppDataRefresh() {
-      void loadRecipeAppData({ isCloudSyncRefresh: true });
-    }
-
-    window.addEventListener(CLOUD_SYNC_APP_DATA_REFRESH_EVENT, handleCloudSyncAppDataRefresh);
     void loadRecipeAppData();
 
     return () => {
       isCurrent = false;
-      window.removeEventListener(
-        CLOUD_SYNC_APP_DATA_REFRESH_EVENT,
-        handleCloudSyncAppDataRefresh
-      );
     };
   }, []);
 
   useEffect(() => {
-    if (!hasHydratedAppDataRef.current) {
+    if (!hasHydratedAppDataRef.current || !hasLoadedRecipes) {
       return;
     }
 
     void shoppingListState.reconcileAndApplyShoppingListChecks().catch(logError);
-  }, [getRecipeById]);
+  }, [getRecipeById, hasLoadedRecipes]);
+
+  useEffect(() => {
+    if (!cloudSyncRefreshToken) {
+      return;
+    }
+
+    let isCurrent = true;
+
+    async function loadCloudSyncedRecipeAppData() {
+      if (dirtyPreferenceKeysRef.current.size > 0) {
+        return;
+      }
+
+      const loadedRecipeAppData = await fetchRecipeAppDataSnapshot({
+        onError: logError
+      });
+
+      if (!isCurrent) {
+        return;
+      }
+
+      applyLoadedRecipeAppData(loadedRecipeAppData);
+    }
+
+    void loadCloudSyncedRecipeAppData();
+
+    return () => {
+      isCurrent = false;
+    };
+  }, [cloudSyncRefreshToken]);
 
   async function handleMealPlanRecipeMarkCooked(currentDate: string, entryIndex: number) {
     const nextState = await markMealPlanEntryAsCooked(currentDate, entryIndex);
