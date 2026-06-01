@@ -10,7 +10,10 @@ import {
 } from 'react';
 import { countKnownDatedRecipes } from '../helpers/mealPlanData';
 import { fetchRecipeCatalog, persistRecipeCatalog } from '../helpers/recipePreferences';
-import { CLOUD_SYNC_APP_DATA_REFRESH_EVENT } from '../hooks/useCloudSyncStatus';
+import {
+  CLOUD_SYNC_APP_DATA_REFRESH_EVENT,
+  type CloudSyncAppDataRefreshEventDetail
+} from '../hooks/useCloudSyncStatus';
 import { useRecipeAppData } from '../hooks/useRecipeAppData';
 import type { Recipe } from '../types/recipe';
 
@@ -97,6 +100,11 @@ async function loadRecipesFromCatalog() {
   return fetchRecipeCatalog({ onError: console.error });
 }
 
+type CloudSyncRefreshRequest = {
+  shouldForceRefresh: boolean;
+  token: number;
+};
+
 function useRequiredContext<T>(contextValue: T | null, hookName: string): T {
   if (!contextValue) {
     throw new Error(`${hookName} must be used within RecipeAppDataProvider.`);
@@ -136,7 +144,11 @@ export function RecipeAppDataProvider({
 }) {
   const [recipes, setRecipes] = useState<Recipe[]>([]);
   const [hasLoadedRecipes, setHasLoadedRecipes] = useState(false);
-  const [cloudSyncRefreshToken, setCloudSyncRefreshToken] = useState(0);
+  const [cloudSyncRefreshRequest, setCloudSyncRefreshRequest] =
+    useState<CloudSyncRefreshRequest>({
+      shouldForceRefresh: false,
+      token: 0
+    });
   const recipeById = useMemo(
     () => new Map(recipes.map((recipe) => [recipe.id, recipe] as const)),
     [recipes]
@@ -148,7 +160,7 @@ export function RecipeAppDataProvider({
     [recipeById]
   );
   const recipeAppData = useRecipeAppData({
-    cloudSyncRefreshToken,
+    cloudSyncRefreshRequest,
     getRecipeById,
     hasLoadedRecipes
   });
@@ -190,10 +202,16 @@ export function RecipeAppDataProvider({
   useEffect(() => {
     let isCurrent = true;
 
-    function handleCloudSyncAppDataRefresh() {
+    function handleCloudSyncAppDataRefresh(event: Event) {
       void (async () => {
         try {
-          const loadedRecipes = await loadRecipes();
+          const eventDetail = (event as CustomEvent<CloudSyncAppDataRefreshEventDetail>)
+            .detail;
+          const shouldForceRefresh = eventDetail?.shouldForceRefresh ?? false;
+          const loadedRecipes = await fetchRecipeCatalog({
+            cache: 'no-store',
+            onError: console.error
+          });
 
           if (!isCurrent) {
             return;
@@ -201,7 +219,10 @@ export function RecipeAppDataProvider({
 
           setRecipes(loadedRecipes);
           setHasLoadedRecipes(true);
-          setCloudSyncRefreshToken((currentToken) => currentToken + 1);
+          setCloudSyncRefreshRequest((currentRequest) => ({
+            shouldForceRefresh,
+            token: currentRequest.token + 1
+          }));
         } catch (error) {
           console.error(error);
         }

@@ -34,16 +34,19 @@ const UPDATE_COOKED_MEAL_HISTORY_ERROR_MESSAGE = 'Could not update cooked meal h
 
 async function requestRecipePreferencePayload({
   path,
+  cache,
   errorMessage,
   body,
   method = 'GET'
 }: {
   path: string;
+  cache?: RequestCache;
   errorMessage: string;
   body?: unknown;
   method?: 'DELETE' | 'GET' | 'PUT';
 }) {
   const response = await fetch(path, {
+    cache,
     method,
     headers: body === undefined ? undefined : { 'Content-Type': 'application/json' },
     body: body === undefined ? undefined : JSON.stringify(body)
@@ -62,6 +65,7 @@ async function requestRecipePreference<T>({
   path,
   responseKey,
   normalize,
+  cache,
   errorMessage,
   body,
   method = 'GET'
@@ -69,12 +73,14 @@ async function requestRecipePreference<T>({
   path: string;
   responseKey: RecipePreferenceResponseKey;
   normalize: (value: unknown) => T;
+  cache?: RequestCache;
   errorMessage: string;
   body?: unknown;
   method?: 'DELETE' | 'GET' | 'PUT';
 }) {
   const payload = await requestRecipePreferencePayload({
     path,
+    cache,
     errorMessage,
     body,
     method
@@ -85,10 +91,12 @@ async function requestRecipePreference<T>({
 
 function fetchReadableRecipePreference<T, K extends RecipePreferenceResponseKey>(
   store: RecipePreferenceStore<T, K>,
-  errorMessage: string
+  errorMessage: string,
+  cache?: RequestCache
 ) {
   return requestRecipePreference({
     path: store.requestPath,
+    cache,
     responseKey: store.responseKey,
     normalize: store.normalize,
     errorMessage
@@ -172,10 +180,13 @@ function persistRecipeScopedPreferenceField<
   });
 }
 
-async function fetchRecipeAppPreference<K extends RecipeAppPreferenceKey>(key: K) {
+async function fetchRecipeAppPreference<K extends RecipeAppPreferenceKey>(
+  key: K,
+  cache?: RequestCache
+) {
   const { loadErrorMessage, store } = getRecipeAppPreferenceDefinition(key);
 
-  return fetchReadableRecipePreference(store, loadErrorMessage);
+  return fetchReadableRecipePreference(store, loadErrorMessage, cache);
 }
 
 function persistRecipeAppPreference<K extends RecipeAppPreferenceKey>({
@@ -240,8 +251,10 @@ function requestCookedMealHistoryMutation({
 }
 
 export async function fetchRecipeAppDataSnapshot({
+  cache,
   onError = console.error
 }: {
+  cache?: RequestCache;
   onError?: (error: unknown) => void;
 } = {}) {
   const loadedEntries = await Promise.all(
@@ -249,7 +262,7 @@ export async function fetchRecipeAppDataSnapshot({
       const { store } = getRecipeAppPreferenceDefinition(key);
 
       try {
-        return [key, await fetchRecipeAppPreference(key)] as const;
+        return [key, await fetchRecipeAppPreference(key, cache)] as const;
       } catch (error) {
         onError(error);
         return [key, store.createEmptyValue()] as const;
@@ -430,13 +443,16 @@ export async function persistShoppingListCustomItems(
 }
 
 export async function fetchRecipeCatalog({
+  cache,
   onError = console.error
 }: {
+  cache?: RequestCache;
   onError?: (error: unknown) => void;
 } = {}) {
   try {
     return await requestRecipePreference({
       path: recipePreferenceApiPaths.recipeCatalog,
+      cache,
       responseKey: 'recipes',
       normalize: normalizeRecipes,
       errorMessage: 'Could not load recipes.'
