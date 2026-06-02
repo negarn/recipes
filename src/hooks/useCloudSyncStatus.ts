@@ -81,6 +81,25 @@ async function fetchCloudSyncStatus() {
   return normalizeCloudSyncStatus(parsedResponse);
 }
 
+async function readCloudSyncError(response: Response, fallbackMessage: string) {
+  try {
+    const parsedResponse = (await response.json()) as unknown;
+
+    if (
+      parsedResponse &&
+      typeof parsedResponse === 'object' &&
+      'error' in parsedResponse &&
+      typeof (parsedResponse as { error?: unknown }).error === 'string'
+    ) {
+      return (parsedResponse as { error: string }).error;
+    }
+  } catch (error) {
+    console.error(error);
+  }
+
+  return fallbackMessage;
+}
+
 export function useCloudSyncStatus() {
   const [status, setStatus] = useState<CloudSyncStatus>(createDefaultCloudSyncStatus());
   const [error, setError] = useState<string | null>(null);
@@ -241,7 +260,9 @@ export function useCloudSyncStatus() {
       });
 
       if (!response.ok) {
-        setError('Could not disconnect cloud sync.');
+        const message = await readCloudSyncError(response, 'Could not disconnect cloud sync.');
+        await refreshStatus();
+        setError(message);
         return false;
       }
 
@@ -263,7 +284,9 @@ export function useCloudSyncStatus() {
       });
 
       if (!response.ok) {
-        setError('Could not sync cloud data.');
+        const message = await readCloudSyncError(response, 'Could not sync cloud data.');
+        await refreshStatus();
+        setError(message);
         return false;
       }
 
@@ -287,7 +310,9 @@ export function useCloudSyncStatus() {
       });
 
       if (!response.ok) {
-        setError('Could not reset local data from cloud.');
+        const message = await readCloudSyncError(response, 'Could not reset local data from cloud.');
+        await refreshStatus();
+        setError(message);
         return false;
       }
 

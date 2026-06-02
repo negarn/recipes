@@ -219,6 +219,16 @@ function getErrorMessage(value: unknown, fallbackMessage: string) {
   return fallbackMessage;
 }
 
+async function getProviderResponseErrorMessage(response: Response, fallbackMessage: string) {
+  const responseText = await response.text();
+  const providerMessage = getErrorMessage(parseJsonOrNull(responseText), '');
+  const statusMessage = `Cloud provider request failed with status ${response.status}.`;
+
+  return providerMessage
+    ? `${fallbackMessage} ${statusMessage} ${providerMessage}`
+    : `${fallbackMessage} ${statusMessage}`;
+}
+
 function formatJsonResponseBody(value: unknown) {
   return `${JSON.stringify(value, null, 2)}\n`;
 }
@@ -471,7 +481,9 @@ async function getGoogleRemoteFileMetadata(accessToken: string, fileId: string) 
   }
 
   if (!response.ok) {
-    throw new CloudSyncError('Could not read Google Drive sync metadata.');
+    throw new CloudSyncError(
+      await getProviderResponseErrorMessage(response, 'Could not read Google Drive sync metadata.')
+    );
   }
 
   const parsedResponse = (await response.json()) as Partial<Record<'id' | 'modifiedTime' | 'trashed', unknown>>;
@@ -501,7 +513,9 @@ async function listGoogleRemoteFileMetadata(accessToken: string) {
   );
 
   if (!response.ok) {
-    throw new CloudSyncError('Could not find Google Drive sync file.');
+    throw new CloudSyncError(
+      await getProviderResponseErrorMessage(response, 'Could not find Google Drive sync file.')
+    );
   }
 
   const parsedResponse = (await response.json()) as Partial<{
@@ -546,7 +560,9 @@ async function createGoogleRemoteFile(accessToken: string, bundle: CloudSyncBund
   });
 
   if (!response.ok) {
-    throw new CloudSyncError('Could not create Google Drive sync file.');
+    throw new CloudSyncError(
+      await getProviderResponseErrorMessage(response, 'Could not create Google Drive sync file.')
+    );
   }
 
   const parsedResponse = (await response.json()) as Partial<Record<'id' | 'modifiedTime', unknown>>;
@@ -568,7 +584,9 @@ async function createGoogleRemoteFile(accessToken: string, bundle: CloudSyncBund
   );
 
   if (!uploadResponse.ok) {
-    throw new CloudSyncError('Could not upload Google Drive sync data.');
+    throw new CloudSyncError(
+      await getProviderResponseErrorMessage(uploadResponse, 'Could not upload Google Drive sync data.')
+    );
   }
 
   const uploadedBundle = (await uploadResponse.json()) as Partial<Record<'id' | 'modifiedTime', unknown>>;
@@ -614,7 +632,9 @@ async function uploadGoogleBundle({
       return createGoogleRemoteFile(accessToken, bundle);
     }
 
-    throw new CloudSyncError('Could not upload Google Drive sync data.');
+    throw new CloudSyncError(
+      await getProviderResponseErrorMessage(uploadResponse, 'Could not upload Google Drive sync data.')
+    );
   }
 
   const uploadedBundle = (await uploadResponse.json()) as Partial<Record<'id' | 'modifiedTime', unknown>>;
@@ -652,7 +672,9 @@ async function downloadGoogleBundle({
   }
 
   if (!response.ok) {
-    throw new CloudSyncError('Could not download Google Drive sync data.');
+    throw new CloudSyncError(
+      await getProviderResponseErrorMessage(response, 'Could not download Google Drive sync data.')
+    );
   }
 
   return normalizeCloudSyncBundle(await response.json());
