@@ -1,5 +1,15 @@
 const DURATION_PATTERN =
-  /(\d+(?:\.\d+)?)\s*(?:to|-)\s*(\d+(?:\.\d+)?)\s*(hours?|hrs?|hr|minutes?|mins?|min|seconds?|secs?|sec)\b|(\d+(?:\.\d+)?)\s*(hours?|hrs?|hr|minutes?|mins?|min|seconds?|secs?|sec)\b/gi;
+  /\b(\d+(?:\.\d+)?)\s*(?:to|-)\s*(\d+(?:\.\d+)?)\s*(hours?|hrs?|hr|minutes?|mins?|min|seconds?|secs?|sec)\b|\b(\d+(?:\.\d+)?|a|an|one|another)\s*(hours?|hrs?|hr|minutes?|mins?|min|seconds?|secs?|sec)\b/gi;
+
+function getDurationQuantity(quantityLabel: string) {
+  const quantity = Number(quantityLabel);
+
+  if (Number.isFinite(quantity)) {
+    return quantity;
+  }
+
+  return 1;
+}
 
 function getDurationUnitSeconds(unitLabel: string) {
   const normalizedUnitLabel = unitLabel.toLowerCase();
@@ -23,7 +33,7 @@ function getDurationValuesInSeconds(value: string) {
   for (const durationMatch of value.matchAll(DURATION_PATTERN)) {
     const quantity = durationMatch[2]
       ? Number(durationMatch[2])
-      : Number(durationMatch[4]);
+      : getDurationQuantity(durationMatch[4]);
     const unitLabel = durationMatch[3] ?? durationMatch[5];
 
     if (!unitLabel || !Number.isFinite(quantity) || quantity <= 0) {

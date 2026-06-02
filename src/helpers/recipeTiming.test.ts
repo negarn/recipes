@@ -33,4 +33,24 @@ describe('getMethodStepTimerDurationMs', () => {
       8 * 60 * 1000
     );
   });
+
+  it('creates a one-minute timer for another minute', () => {
+    expect(
+      getMethodStepTimerDurationMs(
+        'Add in the thyme leaves, cooking for another minute until fragrant.'
+      )
+    ).toBe(60 * 1000);
+  });
+
+  it('creates one-unit timers from common singular labels', () => {
+    expect(getMethodStepTimerDurationMs('Rest for a minute.')).toBe(60 * 1000);
+    expect(getMethodStepTimerDurationMs('Bake for an hour.')).toBe(
+      60 * 60 * 1000
+    );
+    expect(getMethodStepTimerDurationMs('Whisk for one second.')).toBe(1000);
+  });
+
+  it('does not read partial words as one-unit timers', () => {
+    expect(getMethodStepTimerDurationMs('Serve with banana minutes.')).toBeNull();
+  });
 });
