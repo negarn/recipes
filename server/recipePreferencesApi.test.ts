@@ -242,6 +242,36 @@ describe('recipePreferencesApi', () => {
     expect(response.body.recipeBookmarks).toEqual({});
   });
 
+  it('stores and clears recipe ratings through recipe-scoped updates', async () => {
+    await executeRequest({
+      body: JSON.stringify(recipePayload),
+      method: 'PUT',
+      url: recipePreferenceApiPaths.recipeCatalog
+    });
+
+    const ratingResponse = await executeRequest({
+      body: JSON.stringify({ rating: 4 }),
+      method: 'PUT',
+      url: `${recipePreferenceApiPaths.recipes}/${recipePayload.recipe.id}/rating`
+    });
+
+    expect(ratingResponse.statusCode).toBe(200);
+    expect(ratingResponse.body.recipeRatings).toEqual(
+      expect.objectContaining({
+        [recipePayload.recipe.id]: 4
+      })
+    );
+
+    const clearResponse = await executeRequest({
+      body: JSON.stringify({ rating: null }),
+      method: 'PUT',
+      url: `${recipePreferenceApiPaths.recipes}/${recipePayload.recipe.id}/rating`
+    });
+
+    expect(clearResponse.statusCode).toBe(200);
+    expect(clearResponse.body.recipeRatings).not.toHaveProperty(recipePayload.recipe.id);
+  });
+
   it('returns 404 when cooking an unknown recipe id', async () => {
     const response = await executeRequest({
       body: JSON.stringify({

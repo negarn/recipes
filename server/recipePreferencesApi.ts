@@ -122,6 +122,7 @@ class PersistedRecipeDataRollbackError extends Error {
     super(message);
   }
 }
+const invalidParsedRequestBody = Symbol('invalid parsed request body');
 
 const LOOPBACK_HOST_NAMES = new Set(['127.0.0.1', '::1', 'localhost']);
 const defaultPersistedRecipeDataRootDir = resolve(homedir(), '.recipes');
@@ -842,7 +843,7 @@ function parseValueOrSendBadRequest<T>(
 
   if (parsedBody.ok === false) {
     sendJson(response, 400, { error: parsedBody.message });
-    return null;
+    return invalidParsedRequestBody;
   }
 
   return parsedBody.value;
@@ -933,7 +934,7 @@ async function handleRecipeStoreMutation<TStore, TParsedBody, K extends RecipePr
     parseBody
   });
 
-  if (parsedBody === null) {
+  if (parsedBody === invalidParsedRequestBody) {
     return;
   }
 
@@ -972,7 +973,7 @@ async function handleNormalizedStoreWrite<TStore, K extends RecipePreferenceResp
     parseBody
   );
 
-  if (parsedBody === null) {
+  if (parsedBody === invalidParsedRequestBody) {
     return;
   }
 
@@ -1003,7 +1004,7 @@ async function handleMealPlanEntryMutation<TParsedBody>({
     parseBody
   });
 
-  if (parsedBody === null) {
+  if (parsedBody === invalidParsedRequestBody) {
     return;
   }
 
@@ -1100,7 +1101,7 @@ async function handleCookedMealHistoryEntryMutation<TParsedBody>({
     parseBody
   });
 
-  if (parsedBody === null) {
+  if (parsedBody === invalidParsedRequestBody) {
     return;
   }
 
@@ -1322,7 +1323,7 @@ async function handleMealPlanEntryCreateRoute({
     parseBody: parseMealPlanEntryCreateRequestBody
   });
 
-  if (parsedBody === null) {
+  if (parsedBody === invalidParsedRequestBody) {
     return;
   }
 
@@ -1353,7 +1354,7 @@ async function handleCookedMealHistoryEntryCreateRoute({
     parseBody: parseCookedMealHistoryEntryCreateRequestBody
   });
 
-  if (parsedBody === null) {
+  if (parsedBody === invalidParsedRequestBody) {
     return;
   }
 
@@ -1468,7 +1469,7 @@ async function handleRecipeSettingsDefaultServingSizeRoute({
     parseBody: parseDefaultServingSizeRequestBody
   });
 
-  if (parsedBody === null) {
+  if (parsedBody === invalidParsedRequestBody) {
     return;
   }
 
@@ -1529,7 +1530,7 @@ async function handleRecipeCatalogRoute({
     parseBody: parseRecipeCatalogUpsertRequestBody
   });
 
-  if (parsedRecipe === null) {
+  if (parsedRecipe === invalidParsedRequestBody) {
     return;
   }
 

@@ -253,10 +253,13 @@ export function HomePage() {
         await handleRecipeAdd(nextRecipe);
 
         if (editedRecipe !== null) {
-          void Promise.all([
+          await Promise.all([
             handleRecipeRatingChange(nextRecipe.id, payload.rating ?? null),
             handleRecipeNoteChange(nextRecipe.id, payload.note)
-          ]).catch(logRecipePreferenceSaveError);
+          ]).catch((error) => {
+            logRecipePreferenceSaveError(error);
+            throw error;
+          });
           return;
         }
 
