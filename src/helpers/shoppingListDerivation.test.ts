@@ -177,6 +177,71 @@ describe('shopping list derivation', () => {
     });
   });
 
+  it('preserves checked items when removing an earlier meal plan entry shifts recipe indexes', () => {
+    const removedRecipe = createRecipeWithSingleScalableIngredient({
+      id: 'removed-recipe',
+      ingredientId: 'removed-ingredient',
+      ingredientName: 'Removed ingredient',
+      quantity: 1,
+      unit: { singular: 'x' }
+    });
+    const remainingRecipe = createRecipeWithSingleScalableIngredient({
+      id: 'remaining-recipe',
+      ingredientId: 'remaining-ingredient',
+      ingredientName: 'Remaining ingredient',
+      quantity: 2,
+      unit: { singular: 'x' }
+    });
+    const getRecipeById = createGetRecipeById([removedRecipe, remainingRecipe]);
+    const initialSections = deriveShoppingList({
+      getRecipeById,
+      mealPlan: {
+        '2026-04-11': [removedRecipe.id, remainingRecipe.id]
+      },
+      recipeServings: {},
+      recipeSettings: {},
+      shoppingListChecks: {},
+      shoppingListCustomItems: []
+    });
+    const remainingInitialItem = initialSections
+      .flatMap((section) => section.items)
+      .find((item) => item.itemKey.includes('remaining ingredient'));
+
+    if (!remainingInitialItem) {
+      throw new Error('Expected the remaining recipe ingredient in the shopping list.');
+    }
+
+    const reconciledChecks = reconcileShoppingListChecks({
+      getRecipeById,
+      mealPlan: {
+        '2026-04-11': [remainingRecipe.id]
+      },
+      recipeServings: {},
+      recipeSettings: {},
+      shoppingListChecks: {
+        [remainingInitialItem.itemKey]: [remainingInitialItem.checkSourceKeys[0]]
+      },
+      shoppingListCustomItems: []
+    });
+    const nextSections = deriveShoppingList({
+      getRecipeById,
+      mealPlan: {
+        '2026-04-11': [remainingRecipe.id]
+      },
+      recipeServings: {},
+      recipeSettings: {},
+      shoppingListChecks: reconciledChecks,
+      shoppingListCustomItems: []
+    });
+    const remainingNextItem = getOnlyShoppingListItem(nextSections[0].items);
+
+    expect(remainingNextItem.ingredientName).toBe('Remaining ingredient');
+    expect(remainingNextItem.isChecked).toBe(true);
+    expect(reconciledChecks).toEqual({
+      [remainingNextItem.itemKey]: [remainingNextItem.checkSourceKeys[0]]
+    });
+  });
+
   it('drops stale checks when recipes are no longer resolvable', () => {
     const nextChecks = reconcileShoppingListChecks({
       getRecipeById: createGetRecipeById([]),

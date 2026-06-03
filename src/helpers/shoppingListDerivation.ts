@@ -274,6 +274,12 @@ function readShoppingListSourceScopeKey(sourceKey: string) {
   return sourceKey.split(':').slice(0, 3).join(':');
 }
 
+function readShoppingListSourceIdentityKey(sourceKey: string) {
+  const [date, recipeId, , ...ingredientIdParts] = sourceKey.split(':');
+
+  return [date, recipeId, ingredientIdParts.join(':')].join(':');
+}
+
 function appendMapArrayValue<K, V>(map: Map<K, V[]>, key: K, ...values: V[]) {
   if (!values.length) {
     return;
@@ -396,10 +402,12 @@ function buildCheckedSourceKeysByItemKey({
 }) {
   const sourceKeysByItemKey = new Map<string, Set<string>>();
   const sourceKeysByScopeKeyByItemKey = new Map<string, Map<string, string[]>>();
+  const sourceKeysByIdentityKeyByItemKey = new Map<string, Map<string, string[]>>();
 
   forEachContributionGroup(contributionsByItemKey, (firstContribution, contributions) => {
     const sourceKeys = new Set<string>();
     const sourceKeysByScopeKey = new Map<string, string[]>();
+    const sourceKeysByIdentityKey = new Map<string, string[]>();
 
     contributions.forEach(({ source }) => {
       sourceKeys.add(source.sourceKey);
@@ -408,15 +416,26 @@ function buildCheckedSourceKeysByItemKey({
         readShoppingListSourceScopeKey(source.sourceKey),
         source.sourceKey
       );
+      appendMapArrayValue(
+        sourceKeysByIdentityKey,
+        readShoppingListSourceIdentityKey(source.sourceKey),
+        source.sourceKey
+      );
     });
 
     sourceKeysByItemKey.set(firstContribution.itemKey, sourceKeys);
     sourceKeysByScopeKeyByItemKey.set(firstContribution.itemKey, sourceKeysByScopeKey);
+    sourceKeysByIdentityKeyByItemKey.set(
+      firstContribution.itemKey,
+      sourceKeysByIdentityKey
+    );
   });
 
   shoppingListCustomItems.forEach((shoppingListCustomItem) => {
     const itemKey = getCustomShoppingListItemKey(shoppingListCustomItem.id);
     sourceKeysByItemKey.set(itemKey, new Set([itemKey]));
+    sourceKeysByScopeKeyByItemKey.set(itemKey, new Map());
+    sourceKeysByIdentityKeyByItemKey.set(itemKey, new Map());
   });
 
   const checkedSourceKeysByItemKey = new Map<string, Set<string>>();
@@ -424,8 +443,9 @@ function buildCheckedSourceKeysByItemKey({
   Object.entries(shoppingListChecks).forEach(([storedItemKey, checkedSourceKeys]) => {
     const sourceKeys = sourceKeysByItemKey.get(storedItemKey);
     const sourceKeysByScopeKey = sourceKeysByScopeKeyByItemKey.get(storedItemKey);
+    const sourceKeysByIdentityKey = sourceKeysByIdentityKeyByItemKey.get(storedItemKey);
 
-    if (!sourceKeys || !sourceKeysByScopeKey) {
+    if (!sourceKeys || !sourceKeysByScopeKey || !sourceKeysByIdentityKey) {
       return;
     }
 
@@ -439,10 +459,15 @@ function buildCheckedSourceKeysByItemKey({
       }
 
       const sourceScopeKey = readShoppingListSourceScopeKey(sourceKey);
-      const replacementSourceKeys = sourceKeysByScopeKey.get(sourceScopeKey) ?? [];
+      const sourceIdentityKey = readShoppingListSourceIdentityKey(sourceKey);
+      const replacementSourceKeys = new Set([
+        ...(sourceKeysByScopeKey.get(sourceScopeKey) ?? []),
+        ...(sourceKeysByIdentityKey.get(sourceIdentityKey) ?? [])
+      ]);
 
-      if (replacementSourceKeys.length === 1) {
-        nextCheckedSourceKeys.add(replacementSourceKeys[0]);
+      if (replacementSourceKeys.size === 1) {
+        const [replacementSourceKey] = replacementSourceKeys;
+        nextCheckedSourceKeys.add(replacementSourceKey);
       }
     });
 
