@@ -135,7 +135,50 @@ const slashAliasRecipe: Recipe = {
   ]
 };
 
+const staleIngredientIdRecipe: Recipe = {
+  ...baseRecipe,
+  ingredients: [
+    {
+      amount: {
+        quantity: 5,
+        type: 'scalable',
+        unit: { singular: 'x' }
+      },
+      id: 'green-onion',
+      name: 'Green onion'
+    },
+    {
+      amount: {
+        quantity: 2,
+        type: 'scalable',
+        unit: { singular: 'x' }
+      },
+      id: 'green-chilli',
+      name: 'Green chilli'
+    }
+  ]
+};
+
 describe('renderMethodStepText', () => {
+  it('resolves stale ingredient ids through their human-readable labels', () => {
+    const step =
+      'Finely chop {{ingredient|green-onions|green onion|green onions}}, saving 1/4 for garnish, and {{ingredient|green-chillies|green chilli|green chillies}}.';
+
+    const rendered = renderMethodStepText(step, staleIngredientIdRecipe, 2);
+
+    expect(rendered).toBe(
+      'Finely chop 5 green onions, saving 1/4 for garnish, and 2 green chillies.'
+    );
+  });
+
+  it('renders a human-readable label when an ingredient cannot be resolved', () => {
+    const step = 'Add {{ingredient|missing-peppers|pepper|peppers}}.';
+
+    const rendered = renderMethodStepText(step, baseRecipe, 2);
+
+    expect(rendered).toBe('Add peppers.');
+  });
+
   it('scales valid literal fractions when servings change', () => {
     const step = 'Stir in 1/2 tsp sample powder.';
 

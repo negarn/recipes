@@ -222,6 +222,48 @@ function getRecipeIngredientAliases(recipe: Recipe) {
   return ingredientAliasesById;
 }
 
+function findMethodTokenIngredient(
+  recipe: Recipe,
+  ingredientAliasesById: Map<string, string[]>,
+  ingredientId: string,
+  nounSingular?: string,
+  nounPlural?: string
+) {
+  const ingredientById = recipe.ingredients.find(
+    (ingredient) => ingredient.id === ingredientId
+  );
+
+  if (ingredientById) {
+    return ingredientById;
+  }
+
+  const tokenAliases = expandIngredientAliasCandidates(
+    [nounSingular, nounPlural].filter((alias): alias is string => Boolean(alias))
+  );
+
+  if (!tokenAliases.length) {
+    return undefined;
+  }
+
+  const matchingIngredients = recipe.ingredients.filter((ingredient) => {
+    const ingredientAliases = expandIngredientAliasCandidates(
+      ingredientAliasesById.get(ingredient.id) ?? []
+    );
+
+    return tokenAliases.some((tokenAlias) => ingredientAliases.includes(tokenAlias));
+  });
+
+  return matchingIngredients.length === 1 ? matchingIngredients[0] : undefined;
+}
+
+function getMethodTokenIngredientFallbackLabel(
+  ingredientId: string,
+  nounSingular?: string,
+  nounPlural?: string
+) {
+  return nounPlural || nounSingular || ingredientId.replace(/-+/g, ' ');
+}
+
 function forEachExpandedIngredientAlias(
   ingredientAliasesById: Map<string, string[]>,
   ingredientId: string,
@@ -630,12 +672,20 @@ export function renderMethodStepText(
 
     if (tokenType === 'ingredient') {
       const [ingredientId, nounSingular, nounPlural] = tokenParts;
-      const ingredient = scaledRecipe.ingredients.find(
-        (candidateIngredient) => candidateIngredient.id === ingredientId
+      const ingredient = findMethodTokenIngredient(
+        scaledRecipe,
+        ingredientAliasesById,
+        ingredientId,
+        nounSingular,
+        nounPlural
       );
 
       if (!ingredient) {
-        return match;
+        return getMethodTokenIngredientFallbackLabel(
+          ingredientId,
+          nounSingular,
+          nounPlural
+        );
       }
 
       return createMethodTextPlaceholder(
