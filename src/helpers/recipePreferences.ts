@@ -1,6 +1,10 @@
 import { normalizeRecipeNoteText } from './recipePreferenceData';
 import { normalizeRecipes } from './customRecipes';
 import {
+  readJsonStorageValue,
+  writeJsonStorageValue
+} from './jsonStorage';
+import {
   getRecipeScopedPreferencePath,
   recipePreferenceApiPaths,
   type RecipeScopedPreferenceSuffix
@@ -31,6 +35,65 @@ import type { Recipe } from '../types/recipe';
 const SAVE_MEAL_PLAN_ERROR_MESSAGE = 'Could not save meal plan.';
 const UPDATE_MEAL_PLAN_ERROR_MESSAGE = 'Could not update meal plan.';
 const UPDATE_COOKED_MEAL_HISTORY_ERROR_MESSAGE = 'Could not update cooked meal history.';
+const RECIPE_APP_DATA_CACHE_STORAGE_KEY = 'recipes:last-good-app-data';
+const RECIPE_CATALOG_CACHE_STORAGE_KEY = 'recipes:last-good-catalog';
+
+function createEmptyRecipeAppPreferenceSnapshot() {
+  return Object.fromEntries(
+    recipeAppPreferenceKeys.map((key) => [
+      key,
+      getRecipeAppPreferenceDefinition(key).store.createEmptyValue()
+    ])
+  ) as RecipeAppPreferenceValueMap;
+}
+
+function normalizeRecipeAppPreferenceSnapshot(value: unknown) {
+  if (!value || typeof value !== 'object') {
+    return createEmptyRecipeAppPreferenceSnapshot();
+  }
+
+  return Object.fromEntries(
+    recipeAppPreferenceKeys.map((key) => {
+      const { store } = getRecipeAppPreferenceDefinition(key);
+
+      return [
+        key,
+        store.normalize((value as Partial<Record<RecipeAppPreferenceKey, unknown>>)[key])
+      ];
+    })
+  ) as RecipeAppPreferenceValueMap;
+}
+
+function readCachedRecipeAppDataSnapshot() {
+  const cachedValue = readJsonStorageValue(RECIPE_APP_DATA_CACHE_STORAGE_KEY);
+
+  return cachedValue ? normalizeRecipeAppPreferenceSnapshot(cachedValue) : null;
+}
+
+function writeCachedRecipeAppDataSnapshot(snapshot: RecipeAppPreferenceValueMap) {
+  writeJsonStorageValue(RECIPE_APP_DATA_CACHE_STORAGE_KEY, snapshot);
+}
+
+function writeCachedRecipeAppPreference<K extends RecipeAppPreferenceKey>(
+  key: K,
+  value: RecipeAppPreferenceValueMap[K]
+) {
+  writeCachedRecipeAppDataSnapshot({
+    ...createEmptyRecipeAppPreferenceSnapshot(),
+    ...readCachedRecipeAppDataSnapshot(),
+    [key]: value
+  });
+}
+
+function readCachedRecipeCatalog() {
+  const cachedValue = readJsonStorageValue(RECIPE_CATALOG_CACHE_STORAGE_KEY);
+
+  return cachedValue ? normalizeRecipes(cachedValue) : null;
+}
+
+function writeCachedRecipeCatalog(recipes: Recipe[]) {
+  writeJsonStorageValue(RECIPE_CATALOG_CACHE_STORAGE_KEY, recipes);
+}
 
 async function requestRecipePreferencePayload({
   path,
@@ -205,6 +268,9 @@ function persistRecipeAppPreference<K extends RecipeAppPreferenceKey>({
     errorMessage,
     path,
     store: getRecipeAppPreferenceStore(key)
+  }).then((nextValue) => {
+    writeCachedRecipeAppPreference(key, nextValue);
+    return nextValue;
   });
 }
 
@@ -226,6 +292,9 @@ function requestMealPlanMutation({
     responseKey: 'mealPlan',
     normalize: normalizeMealPlan,
     errorMessage
+  }).then((mealPlan) => {
+    writeCachedRecipeAppPreference('mealPlan', mealPlan);
+    return mealPlan;
   });
 }
 
@@ -247,6 +316,9 @@ function requestCookedMealHistoryMutation({
     responseKey: 'cookedMealHistory',
     normalize: normalizeCookedMealHistory,
     errorMessage
+  }).then((cookedMealHistory) => {
+    writeCachedRecipeAppPreference('cookedMealHistory', cookedMealHistory);
+    return cookedMealHistory;
   });
 }
 
@@ -257,20 +329,50 @@ export async function fetchRecipeAppDataSnapshot({
   cache?: RequestCache;
   onError?: (error: unknown) => void;
 } = {}) {
-  const loadedEntries = await Promise.all(
+  const cachedSnapshot = readCachedRecipeAppDataSnapshot();
+  const loadedResults = await Promise.allSettled(
     recipeAppPreferenceKeys.map(async (key) => {
-      const { store } = getRecipeAppPreferenceDefinition(key);
-
-      try {
-        return [key, await fetchRecipeAppPreference(key, cache)] as const;
-      } catch (error) {
-        onError(error);
-        return [key, store.createEmptyValue()] as const;
-      }
+      return [key, await fetchRecipeAppPreference(key, cache)] as const;
     })
   );
+  const didLoadAnyPreference = loadedResults.some(
+    (result) => result.status === 'fulfilled'
+  );
+  const didFailAnyPreference = loadedResults.some(
+    (result) => result.status === 'rejected'
+  );
 
-  return Object.fromEntries(loadedEntries) as RecipeAppPreferenceValueMap;
+  if (!didLoadAnyPreference && cachedSnapshot) {
+    loadedResults.forEach((result) => {
+      if (result.status === 'rejected') {
+        onError(result.reason);
+      }
+    });
+
+    return cachedSnapshot;
+  }
+
+  const loadedEntries = loadedResults.map((result, index) => {
+    const key = recipeAppPreferenceKeys[index];
+    const { store } = getRecipeAppPreferenceDefinition(key);
+
+    if (result.status === 'fulfilled') {
+      return result.value;
+    }
+
+    onError(result.reason);
+    return [
+      key,
+      cachedSnapshot?.[key] ?? store.createEmptyValue()
+    ] as const;
+  });
+  const loadedSnapshot = Object.fromEntries(loadedEntries) as RecipeAppPreferenceValueMap;
+
+  if (!didFailAnyPreference) {
+    writeCachedRecipeAppDataSnapshot(loadedSnapshot);
+  }
+
+  return loadedSnapshot;
 }
 
 export async function persistMealPlanRecipe(recipeId: string, date: string) {
@@ -318,13 +420,18 @@ export async function markMealPlanEntryAsCooked(currentDate: string, entryIndex:
     errorMessage: 'Could not update cooked meal history.'
   });
 
-  return {
+  const nextState = {
     cookedMealHistory: normalizeCookedMealHistory(payload.cookedMealHistory),
     mealPlan: normalizeMealPlan(payload.mealPlan)
   } satisfies {
     cookedMealHistory: CookedMealHistoryMap;
     mealPlan: MealPlanMap;
   };
+
+  writeCachedRecipeAppPreference('cookedMealHistory', nextState.cookedMealHistory);
+  writeCachedRecipeAppPreference('mealPlan', nextState.mealPlan);
+
+  return nextState;
 }
 
 export async function markRecipeAsCooked(recipeId: string, date: string) {
@@ -450,21 +557,24 @@ export async function fetchRecipeCatalog({
   onError?: (error: unknown) => void;
 } = {}) {
   try {
-    return await requestRecipePreference({
+    const recipes = await requestRecipePreference({
       path: recipePreferenceApiPaths.recipeCatalog,
       cache,
       responseKey: 'recipes',
       normalize: normalizeRecipes,
       errorMessage: 'Could not load recipes.'
     });
+
+    writeCachedRecipeCatalog(recipes);
+    return recipes;
   } catch (error) {
     onError(error);
-    return [] as Recipe[];
+    return readCachedRecipeCatalog() ?? ([] as Recipe[]);
   }
 }
 
 export async function persistRecipeCatalog(recipe: Recipe) {
-  return requestRecipePreference({
+  const recipes = await requestRecipePreference({
     path: recipePreferenceApiPaths.recipeCatalog,
     method: 'PUT',
     body: { recipe },
@@ -472,4 +582,7 @@ export async function persistRecipeCatalog(recipe: Recipe) {
     normalize: normalizeRecipes,
     errorMessage: 'Could not save recipe.'
   });
+
+  writeCachedRecipeCatalog(recipes);
+  return recipes;
 }

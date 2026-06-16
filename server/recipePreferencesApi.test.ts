@@ -22,6 +22,10 @@ beforeAll(async () => {
 
 afterAll(async () => {
   delete process.env.RECIPE_PREFERENCES_DATA_DIR;
+  delete process.env.RECIPE_AUTH_ALLOWED_EMAIL;
+  delete process.env.RECIPE_AUTH_GOOGLE_CLIENT_ID;
+  delete process.env.RECIPE_AUTH_GOOGLE_CLIENT_SECRET;
+  delete process.env.RECIPE_AUTH_SESSION_SECRET;
 
   if (testDataDir) {
     await rm(testDataDir, { recursive: true, force: true });
@@ -192,6 +196,28 @@ describe('recipePreferencesApi', () => {
       expect(response.statusCode).toBe(200);
     } finally {
       delete process.env.RECIPE_PUBLIC_ORIGIN;
+    }
+  });
+
+  it('requires Google sign-in for API requests when app auth is configured', async () => {
+    process.env.RECIPE_AUTH_ALLOWED_EMAIL = 'cook@example.com';
+    process.env.RECIPE_AUTH_GOOGLE_CLIENT_ID = 'client-id';
+    process.env.RECIPE_AUTH_GOOGLE_CLIENT_SECRET = 'client-secret';
+    process.env.RECIPE_AUTH_SESSION_SECRET = 'session-secret';
+
+    try {
+      const response = await executeRequest({
+        method: 'GET',
+        url: recipePreferenceApiPaths.recipeCatalog
+      });
+
+      expect(response.statusCode).toBe(401);
+      expect(response.body.error).toBe('Sign in with Google to use this app.');
+    } finally {
+      delete process.env.RECIPE_AUTH_ALLOWED_EMAIL;
+      delete process.env.RECIPE_AUTH_GOOGLE_CLIENT_ID;
+      delete process.env.RECIPE_AUTH_GOOGLE_CLIENT_SECRET;
+      delete process.env.RECIPE_AUTH_SESSION_SECRET;
     }
   });
 

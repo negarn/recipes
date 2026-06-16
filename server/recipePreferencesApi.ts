@@ -40,6 +40,7 @@ import {
   getConfiguredPublicOriginHostName,
   getRequestOriginHeader
 } from './publicOrigin';
+import { handleAppAuthRequest } from './appAuth';
 import {
   createEmptyRecipeAppDataSnapshot,
   type RecipeAppDataSnapshot
@@ -1632,6 +1633,10 @@ async function handleRecipePreferencesRequest(
   next: NextFunction
 ) {
   const requestPath = getRequestPath(request);
+
+  if (await handleAppAuthRequest(request, response, next)) {
+    return;
+  }
 
   if (!isTrustedRequest(request, requestPath)) {
     sendJson(response, 403, { error: getRequestAccessErrorMessage() });

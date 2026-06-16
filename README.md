@@ -87,6 +87,11 @@ services:
       - "4173:4173"
     environment:
       RECIPE_PREFERENCES_DATA_DIR: /data/recipes
+      RECIPE_PUBLIC_ORIGIN: https://recipes.example.com
+      RECIPE_AUTH_ALLOWED_EMAIL: you@example.com
+      RECIPE_AUTH_GOOGLE_CLIENT_ID: your-google-oauth-client-id
+      RECIPE_AUTH_GOOGLE_CLIENT_SECRET: your-google-oauth-client-secret
+      RECIPE_AUTH_SESSION_SECRET: a-long-random-string
     volumes:
       - recipes-data:/data/recipes
     restart: unless-stopped
@@ -104,7 +109,7 @@ docker compose up -d
 
 The container already points `RECIPE_PREFERENCES_DATA_DIR` at `/data/recipes`, so mounting that path keeps recipe data between updates and container restarts.
 
-If you serve the app from an external origin, set `RECIPE_PUBLIC_ORIGIN` to that exact origin so cloud sync callbacks and browser requests line up.
+If you serve the app from an external origin, set `RECIPE_PUBLIC_ORIGIN` to that exact origin so auth, cloud sync callbacks, and browser requests line up.
 
 ## Scripts
 
@@ -140,6 +145,33 @@ The app stores these JSON files there:
 - `shopping-list-custom-items.json`
 
 A local Vite middleware in `server/recipePreferencesApi.ts` serves `/api/*` routes and writes updates atomically. By default it only accepts localhost requests; if you set `RECIPE_PUBLIC_ORIGIN`, it will also accept requests from that single configured origin. Set `RECIPE_PREFERENCES_DATA_DIR` if you want to point persistence at another directory.
+
+### Google App Sign-In
+
+Set `RECIPE_AUTH_ALLOWED_EMAIL` to require Google sign-in before the app opens. Only that exact Google email address may sign in.
+
+Create a Google OAuth web client, then set:
+
+```bash
+RECIPE_AUTH_ALLOWED_EMAIL=you@example.com
+RECIPE_AUTH_GOOGLE_CLIENT_ID=...
+RECIPE_AUTH_GOOGLE_CLIENT_SECRET=...
+RECIPE_AUTH_SESSION_SECRET=...
+```
+
+Add this authorized redirect URI to the Google OAuth client:
+
+- `https://recipes.example.com/auth/google/callback`
+
+Use your real `RECIPE_PUBLIC_ORIGIN` in place of `https://recipes.example.com`. For local testing, use `http://127.0.0.1:5173/auth/google/callback`.
+
+The app session is stored in a signed, HTTP-only cookie so mobile browsers should stay signed in across normal app focus changes. The auth client ID/secret can be the same OAuth web client used for Google Drive cloud sync, as long as both redirect URLs are configured.
+
+### Offline Use
+
+Production builds register a service worker and include a web app manifest. After you have opened the app online once, the browser caches the app shell plus successful API reads. The app also stores the last successful recipe catalog and app-data snapshot in browser storage, so the shopping list can still render when requests fail offline.
+
+Offline changes are intentionally conservative: read-only access is cached, while writes still need the server to save and sync reliably.
 
 ### Cloud Sync
 
