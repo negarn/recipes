@@ -1,4 +1,4 @@
-const CACHE_NAME = 'recipes-offline-v2';
+const CACHE_NAME = 'recipes-offline-v3';
 const APP_SHELL_URLS = ['/', '/index.html', '/manifest.webmanifest', '/favicon.svg?v=7'];
 
 function isSameOriginUrl(url) {
@@ -26,6 +26,56 @@ async function cacheResponse(request, response) {
   return response;
 }
 
+function getHtmlAssetUrls(html) {
+  return Array.from(html.matchAll(/\b(?:src|href)="([^"]+)"/g))
+    .map((match) => match[1])
+    .filter((url) => url.startsWith('/assets/'));
+}
+
+async function fetchCacheableResponse(url) {
+  const response = await fetch(url, {
+    cache: 'reload',
+    credentials: 'same-origin'
+  });
+
+  if (!response || !response.ok || response.redirected || response.type === 'opaque') {
+    return null;
+  }
+
+  const responseUrl = response.url ? new URL(response.url) : null;
+
+  if (responseUrl?.origin === self.location.origin && responseUrl.pathname.startsWith('/auth/')) {
+    return null;
+  }
+
+  return response;
+}
+
+async function cacheUrl(cache, url) {
+  try {
+    const response = await fetchCacheableResponse(url);
+
+    if (response) {
+      await cache.put(url, response.clone());
+    }
+
+    return response;
+  } catch {
+    return null;
+  }
+}
+
+async function cacheAppShell() {
+  const cache = await caches.open(CACHE_NAME);
+  const indexResponse = await cacheUrl(cache, '/index.html');
+  const indexHtml = indexResponse ? await indexResponse.clone().text() : '';
+  const assetUrls = getHtmlAssetUrls(indexHtml);
+
+  await Promise.all(
+    [...APP_SHELL_URLS, ...assetUrls].map((url) => cacheUrl(cache, url))
+  );
+}
+
 async function fetchAndCache(request) {
   return cacheResponse(request, await fetch(request));
 }
@@ -45,9 +95,7 @@ async function respondWithCachedFallback(request, fallbackRequest = request) {
 }
 
 self.addEventListener('install', (event) => {
-  event.waitUntil(
-    caches.open(CACHE_NAME).then((cache) => cache.addAll(APP_SHELL_URLS))
-  );
+  event.waitUntil(cacheAppShell());
   self.skipWaiting();
 });
 
