@@ -1,4 +1,4 @@
-const CACHE_NAME = 'recipes-offline-v1';
+const CACHE_NAME = 'recipes-offline-v2';
 const APP_SHELL_URLS = ['/', '/index.html', '/manifest.webmanifest', '/favicon.svg?v=7'];
 
 function isSameOriginUrl(url) {
@@ -10,8 +10,19 @@ async function cacheResponse(request, response) {
     return response;
   }
 
-  const cache = await caches.open(CACHE_NAME);
-  await cache.put(request, response.clone());
+  const responseUrl = response.url ? new URL(response.url) : null;
+
+  if (responseUrl?.origin === self.location.origin && responseUrl.pathname.startsWith('/auth/')) {
+    return response;
+  }
+
+  try {
+    const cache = await caches.open(CACHE_NAME);
+    await cache.put(request, response.clone());
+  } catch {
+    return response;
+  }
+
   return response;
 }
 
@@ -64,7 +75,11 @@ self.addEventListener('fetch', (event) => {
 
   const url = new URL(request.url);
 
-  if (!isSameOriginUrl(url) || url.pathname.startsWith('/auth/')) {
+  if (
+    !isSameOriginUrl(url) ||
+    url.pathname.startsWith('/auth/') ||
+    url.pathname.startsWith('/api/auth/')
+  ) {
     return;
   }
 

@@ -635,23 +635,28 @@ async function handleAuthRoute(request: IncomingMessage, response: ServerRespons
         value: stateToken
       })
     );
-    redirect(response, createAuthRedirectUrl({ nonce, request, state }));
+    redirect(response, createAuthRedirectUrl({ nonce, request, state: stateToken }));
     return true;
   }
 
   if (request.method === 'GET' && requestPath === '/auth/google/callback') {
-    const authState = parseSignedToken<AuthState>(
+    const callbackState = requestUrl.searchParams.get('state');
+    const authStateFromCallback = parseSignedToken<AuthState>(callbackState ?? undefined);
+    const authStateFromCookie = parseSignedToken<AuthState>(
       parseCookies(request)[AUTH_STATE_COOKIE_NAME]
     );
+    const authState = authStateFromCallback ?? authStateFromCookie;
     const code = requestUrl.searchParams.get('code');
-    const state = requestUrl.searchParams.get('state');
+    const isValidState = authStateFromCallback
+      ? true
+      : Boolean(authState && callbackState === authState.state);
 
     try {
       if (
         !authState ||
         authState.exp < Math.floor(Date.now() / 1000) ||
         !code ||
-        state !== authState.state
+        !isValidState
       ) {
         throw new Error('Google sign-in expired. Please try again.');
       }
