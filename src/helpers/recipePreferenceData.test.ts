@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import {
+  normalizeShoppingListCustomItemDraft,
   normalizeRecipeBookmarkText,
   normalizeRecipeBookmarks,
   normalizeRecipeSettings
@@ -47,5 +48,39 @@ describe('recipePreferenceData settings', () => {
     });
     expect(normalizeRecipeSettings({ defaultServingSize: 0 })).toEqual({});
     expect(normalizeRecipeSettings({ defaultServingSize: 3.5 })).toEqual({});
+  });
+});
+
+describe('recipePreferenceData shopping list custom items', () => {
+  it('defaults a blank custom item amount to one', () => {
+    expect(
+      normalizeShoppingListCustomItemDraft({
+        amountText: '   ',
+        ingredientName: '  Toothpaste '
+      })
+    ).toEqual({
+      amountText: '1',
+      ingredientName: 'Toothpaste'
+    });
+  });
+
+  it('defaults a missing custom item amount to one', () => {
+    expect(
+      normalizeShoppingListCustomItemDraft({
+        ingredientName: 'Toothpaste'
+      })
+    ).toEqual({
+      amountText: '1',
+      ingredientName: 'Toothpaste'
+    });
+  });
+
+  it('still requires a custom item ingredient name', () => {
+    expect(
+      normalizeShoppingListCustomItemDraft({
+        amountText: '',
+        ingredientName: '   '
+      })
+    ).toBeNull();
   });
 });

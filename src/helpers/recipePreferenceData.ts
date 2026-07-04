@@ -206,15 +206,14 @@ export function normalizeShoppingListCustomItemDraft(value: unknown) {
     ingredientName
   } = value as Partial<Record<'amountText' | 'ingredientName', unknown>>;
 
-  if (
-    !isNonEmptyString(amountText) ||
-    !isNonEmptyString(ingredientName)
-  ) {
+  if (!isNonEmptyString(ingredientName)) {
     return null;
   }
 
+  const normalizedAmountText = isNonEmptyString(amountText) ? amountText.trim() : '1';
+
   return {
-    amountText: amountText.trim(),
+    amountText: normalizedAmountText,
     ingredientName: ingredientName.trim()
   } satisfies Pick<ShoppingListCustomItem, 'amountText' | 'ingredientName'>;
 }

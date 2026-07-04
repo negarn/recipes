@@ -62,7 +62,7 @@ export function ShoppingListCustomItemForm({
 
         <label className="grid gap-1.5 min-[720px]:grid-rows-[auto_3rem]" htmlFor={amountFieldId}>
           <span className="text-[0.72rem] font-semibold uppercase tracking-[0.16em] text-app-muted-soft">
-            Amount
+            Amount optional
           </span>
           <input
             id={amountFieldId}
@@ -71,7 +71,7 @@ export function ShoppingListCustomItemForm({
             onChange={(event) => {
               onDraftChange('amountText', event.target.value);
             }}
-            placeholder="1 bottle"
+            placeholder="Defaults to 1"
             className={cn(fieldClass, 'h-[3rem] rounded-[16px] px-4 py-0 text-[0.98rem]')}
           />
         </label>
