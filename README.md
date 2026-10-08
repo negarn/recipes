@@ -21,6 +21,8 @@ Use `npm run dev` to go back to your normal local data. To refresh the mock snap
   ![Recipe catalog browsing with search, pagination, and audience tabs](docs/recipe-catalog-search-tabs.gif)
 - Create and edit recipes from the recipes page, including ingredients, tags, nutrition, servings, and notes.
 
+  The editor's **Check scaling** button compares prep and cook amounts at smaller and doubled serving sizes. It reports broken ingredient links, likely unscaled quantities, missing quantities, and amounts that disagree with the ingredient list. Quantified uses across steps are added together, so a split such as 1 tsp in prep plus 1/2 tsp in cooking matches a 1.5 tsp ingredient total. Use **Edit step** to correct spelling or units, **Scale count** for portions such as burgers and bowls, or **Keep fixed** for an intentional fixed amount. Saving runs the same check and offers **Save anyway** when there are findings. These suggestions are heuristic: pinches, worded amounts, and ingredient fractions such as “1/3 of spinach” are left alone.
+
   ![Create and edit recipes on the recipes page](docs/add-edit-recipe.gif)
 - Open recipe details with scaled ingredients, grouped method steps, nutrition, ratings, bookmarks, and optional step timers.
 

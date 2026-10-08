@@ -1,5 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { createRecipeFromPayload } from './HomePage';
+import { createRecipeCreateFormInitialValues } from '../components/RecipeCreateForm';
+import { normalizeCustomRecipe } from '../helpers/customRecipes';
 import type { RecipeCreatePayload } from '../components/RecipeCreateForm';
 import type { Recipe } from '../types/recipe';
 
@@ -66,6 +68,22 @@ const previousRecipe: Recipe = {
 };
 
 describe('createRecipeFromPayload', () => {
+  it('saves and reopens a recipe without prep steps', () => {
+    const recipe = createRecipeFromPayload(
+      { ...baseRecipePayload, prepSteps: [] },
+      previousRecipe.id,
+      previousRecipe
+    );
+
+    expect(recipe.sections).toEqual([
+      { id: 'cook', title: 'Cook', steps: baseRecipePayload.cookSteps }
+    ]);
+    const saved = normalizeCustomRecipe(JSON.parse(JSON.stringify(recipe)));
+    expect(saved?.sections).toEqual(recipe.sections);
+    expect(createRecipeCreateFormInitialValues(saved!).prepSteps).toBe('');
+    expect(createRecipeCreateFormInitialValues(saved!).cookSteps).toBe(baseRecipePayload.cookSteps.join('\n'));
+  });
+
   it('preserves existing ingredient ids when editing a recipe', () => {
     const recipe = createRecipeFromPayload(
       baseRecipePayload,

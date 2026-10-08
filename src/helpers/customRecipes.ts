@@ -365,27 +365,27 @@ function normalizeNutrition(value: unknown) {
     return undefined;
   }
 
-  const normalizedValues = Object.fromEntries(
-    RECIPE_NUTRITION_VALUE_KEYS.map((key) => {
-      const nutritionValue = nutritionValues[key];
-      const normalizedValue =
-        typeof nutritionValue === 'number' && Number.isFinite(nutritionValue) && nutritionValue >= 0
-          ? nutritionValue
-          : null;
-      return [key, normalizedValue];
-    })
-  ) as Record<keyof RecipeNutrition['values'], number | null>;
-  const hasAllNutritionValues = RECIPE_NUTRITION_VALUE_KEYS.every(
-    (key) => normalizedValues[key] !== null
-  );
+  const normalizedValues: RecipeNutrition['values'] = {};
 
-  if (!hasAllNutritionValues) {
+  for (const key of RECIPE_NUTRITION_VALUE_KEYS) {
+    const nutritionValue = nutritionValues[key];
+
+    if (nutritionValue === undefined) {
+      continue;
+    }
+    if (typeof nutritionValue !== 'number' || !Number.isFinite(nutritionValue) || nutritionValue < 0) {
+      return undefined;
+    }
+    normalizedValues[key] = nutritionValue;
+  }
+
+  if (!Object.keys(normalizedValues).length) {
     return undefined;
   }
 
   return {
     sourceServings: value.sourceServings,
-    values: normalizedValues as RecipeNutrition['values']
+    values: normalizedValues
   } satisfies RecipeNutrition;
 }
 

@@ -31,7 +31,7 @@ function escapeRegExp(value: string) {
   return value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 }
 
-function parseQuantityLabel(quantityLabel: string) {
+export function parseQuantityLabel(quantityLabel: string) {
   function parseFraction(numeratorLabel: string, denominatorLabel: string) {
     const numerator = Number(numeratorLabel);
     const denominator = Number(denominatorLabel);
@@ -653,7 +653,13 @@ function replaceLiteralMeasuredAmounts(
   });
 }
 
-export function renderMethodStepText(
+export type MethodTokenIssue = {
+  start: number;
+  end: number;
+  message: string;
+};
+
+export function inspectMethodStepText(
   step: string,
   recipe: Recipe,
   servingCount: number,
@@ -664,14 +670,23 @@ export function renderMethodStepText(
       ? recipe
       : { ...recipe, defaultServings: defaultServingCount };
   const placeholderValues: string[] = [];
+  const issues: MethodTokenIssue[] = [];
   const ingredientAliasesById = getRecipeIngredientAliases(scaledRecipe);
-  let renderedStep = step.replace(RECIPE_METHOD_TOKEN_PATTERN, (match, rawToken) => {
+  let renderedStep = step.replace(RECIPE_METHOD_TOKEN_PATTERN, (match, rawToken, start) => {
+    function reportIssue(message: string) {
+      issues.push({ start, end: start + match.length, message });
+    }
+
     const [tokenType, ...tokenParts] = rawToken
       .split('|')
       .map((part: string) => part.trim());
 
     if (tokenType === 'ingredient') {
       const [ingredientId, nounSingular, nounPlural] = tokenParts;
+      if (!ingredientId || tokenParts.length > 3) {
+        reportIssue('This ingredient link is incomplete or has extra fields. Link it to an ingredient again.');
+        return match;
+      }
       const ingredient = findMethodTokenIngredient(
         scaledRecipe,
         ingredientAliasesById,
@@ -681,6 +696,7 @@ export function renderMethodStepText(
       );
 
       if (!ingredient) {
+        reportIssue(`The ingredient link "${ingredientId}" cannot be matched. Check the ingredient name or link.`);
         return getMethodTokenIngredientFallbackLabel(
           ingredientId,
           nounSingular,
@@ -703,6 +719,7 @@ export function renderMethodStepText(
     if (tokenType === 'ingredient-portion') {
       // Render a fraction of the ingredient amount, such as 1/4 of the ginger.
       if (tokenParts.length !== 2) {
+        reportIssue('This ingredient portion needs an ingredient and a fraction, such as 1/2.');
         return match;
       }
 
@@ -712,6 +729,7 @@ export function renderMethodStepText(
       );
 
       if (!ingredient || !portionLabel) {
+        reportIssue('This ingredient portion has a missing ingredient or fraction.');
         return match;
       }
 
@@ -723,6 +741,7 @@ export function renderMethodStepText(
       );
 
       if (amountLabel === null) {
+        reportIssue('This ingredient portion has an invalid fraction.');
         return match;
       }
 
@@ -733,7 +752,13 @@ export function renderMethodStepText(
       const [quantityLabel, unitSingular, unitPlural, separatorLabel] = tokenParts;
       const quantity = Number(quantityLabel);
 
-      if (!Number.isFinite(quantity)) {
+      if (!quantityLabel || !Number.isFinite(quantity) || quantity < 0 || tokenParts.length > 4) {
+        reportIssue('This amount link needs a valid number and optional unit.');
+        return match;
+      }
+
+      if (separatorLabel && separatorLabel !== 'none' && separatorLabel !== 'space') {
+        reportIssue('This amount link has an invalid unit separator. Use none or space.');
         return match;
       }
 
@@ -757,6 +782,16 @@ export function renderMethodStepText(
       );
     }
 
+    if (tokenType === 'fixed') {
+      if (tokenParts.length !== 1 || !tokenParts[0]) {
+        reportIssue('This fixed amount needs the text to keep unchanged.');
+        return match;
+      }
+
+      return createMethodTextPlaceholder(tokenParts[0], placeholderValues);
+    }
+
+    reportIssue('This step contains an unknown amount link. Edit or remove the link.');
     return match;
   });
 
@@ -788,5 +823,14 @@ export function renderMethodStepText(
     renderedStep = replaceLiteralMeasuredAmounts(renderedStep, scaledRecipe, servingCount);
   }
 
-  return restoreMethodTextPlaceholders(renderedStep, placeholderValues);
+  return { text: restoreMethodTextPlaceholders(renderedStep, placeholderValues), issues };
+}
+
+export function renderMethodStepText(
+  step: string,
+  recipe: Recipe,
+  servingCount: number,
+  defaultServingCount = recipe.defaultServings
+) {
+  return inspectMethodStepText(step, recipe, servingCount, defaultServingCount).text;
 }

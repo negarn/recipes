@@ -29,14 +29,14 @@ export type MethodSection = {
 };
 
 type RecipeNutritionValues = {
-  calories: number;
-  carbs: number;
-  fat: number;
-  saturates: number;
-  sugars: number;
-  fibre: number;
-  protein: number;
-  salt: number;
+  calories?: number;
+  carbs?: number;
+  fat?: number;
+  saturates?: number;
+  sugars?: number;
+  fibre?: number;
+  protein?: number;
+  salt?: number;
 };
 
 export type RecipeNutrition = {

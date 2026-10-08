@@ -1,8 +1,16 @@
-import { useId, useState, type FormEvent } from 'react';
+import { useId, useMemo, useRef, useState, type FormEvent } from 'react';
 import { CloseIcon } from './CloseIcon';
 import { IconActionButton } from './IconActionButton';
 import { InlineMessage } from './InlineMessage';
 import { RecipeRatingSelector } from './RecipeRatingSelector';
+import { RecipeScalingFeedback } from './RecipeScalingFeedback';
+import { createRecipeFromPayload } from '../helpers/recipeCreation';
+import {
+  checkRecipeScaling,
+  getMethodStepDraftRange,
+  replaceScalingIssueText,
+  type RecipeScalingIssue
+} from '../helpers/recipeScalingValidation';
 import { formatQuantityWithUnit } from '../helpers/quantityFormatting';
 import {
   formatRecipeNutritionValue,
@@ -106,10 +114,10 @@ function createRecipeNutritionDraft(recipeNutrition?: RecipeNutrition) {
   }
 
   return Object.fromEntries(
-    nutritionFieldDefinitions.map(({ key, unit }) => [
-      key,
-      formatRecipeNutritionValue(perServingValues[key], unit)
-    ])
+    nutritionFieldDefinitions.map(({ key, unit }) => {
+      const value = perServingValues[key];
+      return [key, value === undefined ? '' : formatRecipeNutritionValue(value, unit)];
+    })
   ) as RecipeFormNutritionDraft;
 }
 
@@ -210,67 +218,41 @@ function parseIngredientLines(value: string) {
   } as const;
 }
 
-function parseNutritionDraft(nutritionDraft: RecipeFormNutritionDraft) {
-  const hasAnyNutritionField = nutritionFieldDefinitions.some(
-    ({ key }) => nutritionDraft[key].trim().length > 0
-  );
+export function parseNutritionDraft(nutritionDraft: RecipeFormNutritionDraft): {
+  error: string | null;
+  nutrition: RecipeNutrition | undefined;
+} {
+  const values: RecipeNutrition['values'] = {};
 
-  if (!hasAnyNutritionField) {
-    return {
-      error: null,
-      nutrition: undefined
-    } as const;
-  }
-
-  const parsedEntries = nutritionFieldDefinitions.map(({ key, label }) => {
+  for (const { key, label } of nutritionFieldDefinitions) {
     const rawValue = nutritionDraft[key].trim();
 
     if (!rawValue) {
-      return {
-        error: `Nutrition is missing ${label}.`
-      } as const;
+      continue;
     }
 
     const numericValue = Number(rawValue);
 
     if (!Number.isFinite(numericValue) || numericValue < 0) {
       return {
-        error: `${label} must be a number that is 0 or greater.`
+        error: `${label} must be a number that is 0 or greater.`,
+        nutrition: undefined
       } as const;
     }
 
-    return {
-      entry: [key, numericValue] as const
-    } as const;
-  });
-
-  const invalidEntry = parsedEntries.find((entry) => 'error' in entry);
-
-  if (invalidEntry && 'error' in invalidEntry) {
-    return {
-      error: invalidEntry.error,
-      nutrition: undefined
-    } as const;
+    values[key] = numericValue;
   }
 
   return {
     error: null,
-    nutrition: {
-      sourceServings: 1,
-      values: Object.fromEntries(
-        parsedEntries.map((entry) => ('entry' in entry ? entry.entry : null)).filter(
-          (
-            entry
-          ): entry is [keyof RecipeNutrition['values'], number] => entry !== null
-        )
-      ) as RecipeNutrition['values']
-    } satisfies RecipeNutrition
+    nutrition: Object.keys(values).length ? { sourceServings: 1, values } : undefined
   } as const;
 }
 
 export function RecipeCreateForm({
   errorMessage,
   initialValues,
+  originalRecipe,
   formId,
   isSaving,
   savingLabel,
@@ -281,6 +263,7 @@ export function RecipeCreateForm({
 }: {
   errorMessage?: string | null;
   initialValues: RecipeCreateFormInitialValues;
+  originalRecipe?: Recipe;
   formId: string;
   isSaving: boolean;
   savingLabel: string;
@@ -317,6 +300,89 @@ export function RecipeCreateForm({
     ...initialValues.nutritionDraft
   });
   const [validationError, setValidationError] = useState<string | null>(null);
+  const [hasCheckedScaling, setHasCheckedScaling] = useState(false);
+  const [reviewedScalingDraft, setReviewedScalingDraft] = useState<string | null>(null);
+  const prepStepsRef = useRef<HTMLTextAreaElement>(null);
+  const cookStepsRef = useRef<HTMLTextAreaElement>(null);
+  const scalingPanelRef = useRef<HTMLElement>(null);
+  const scalingHeadingId = useId();
+  const scalingDraftKey = JSON.stringify([ingredients, prepSteps, cookSteps, servings]);
+  const scalingReview = useMemo(() => {
+    if (!hasCheckedScaling) {
+      return null;
+    }
+    const parsedIngredients = parseIngredientLines(ingredients);
+    const servingCount = Number(servings);
+    if (parsedIngredients.error) {
+      return { error: parsedIngredients.error, check: null };
+    }
+    if (!parsedIngredients.ingredients.length) {
+      return { error: 'Add ingredients before checking scaling.', check: null };
+    }
+    if (!Number.isSafeInteger(servingCount) || servingCount <= 0) {
+      return { error: 'Enter a serving size greater than 0 before checking scaling.', check: null };
+    }
+    const recipe = createRecipeFromPayload(
+      {
+        ingredients: parsedIngredients.ingredients,
+        prepSteps: parseTextLines(prepSteps),
+        cookSteps: parseTextLines(cookSteps),
+        servings: servingCount,
+        title: '',
+        totalTime: '',
+        note: '',
+        tags: [],
+        isVegan: false,
+        isVegetarian: false
+      },
+      originalRecipe?.id ?? 'draft',
+      originalRecipe
+    );
+    return { error: null, check: checkRecipeScaling(recipe) };
+  }, [hasCheckedScaling, ingredients, prepSteps, cookSteps, servings, originalRecipe]);
+  const canSaveWithWarnings =
+    reviewedScalingDraft === scalingDraftKey && Boolean(scalingReview?.check?.issues.length);
+  let saveButtonLabel = submitLabel;
+  if (isSaving) {
+    saveButtonLabel = savingLabel;
+  } else if (canSaveWithWarnings) {
+    saveButtonLabel = 'Save anyway';
+  }
+
+  function focusScalingPanel() {
+    requestAnimationFrame(() => scalingPanelRef.current?.focus());
+  }
+
+  function handleScalingCheck() {
+    setHasCheckedScaling(true);
+    setReviewedScalingDraft(scalingDraftKey);
+  }
+
+  function editScalingIssue(issue: RecipeScalingIssue) {
+    const draft = issue.sectionId === 'prep' ? prepSteps : cookSteps;
+    const field = issue.sectionId === 'prep' ? prepStepsRef.current : cookStepsRef.current;
+    const range = getMethodStepDraftRange(draft, issue.stepIndex);
+    if (field && range) {
+      field.focus();
+      field.setSelectionRange(range.start + issue.start, range.start + issue.end);
+    }
+  }
+
+  function replaceScalingIssue(issue: RecipeScalingIssue, replacement: string) {
+    const draft = issue.sectionId === 'prep' ? prepSteps : cookSteps;
+    const range = getMethodStepDraftRange(draft, issue.stepIndex);
+    if (!range) {
+      return;
+    }
+    const step = draft.slice(range.start, range.end);
+    const updatedStep = replaceScalingIssueText(step, issue, replacement);
+    const updatedDraft = draft.slice(0, range.start) + updatedStep + draft.slice(range.end);
+    if (issue.sectionId === 'prep') {
+      setPrepSteps(updatedDraft);
+    } else {
+      setCookSteps(updatedDraft);
+    }
+  }
 
   function updateNutritionDraft(key: keyof RecipeNutrition['values'], value: string) {
     setNutritionDraft((currentDraft) =>
@@ -371,11 +437,6 @@ export function RecipeCreateForm({
       return;
     }
 
-    if (!prepStepLines.length) {
-      setValidationError('Add at least one prep step.');
-      return;
-    }
-
     if (!cookStepLines.length) {
       setValidationError('Add at least one cook step.');
       return;
@@ -400,7 +461,7 @@ export function RecipeCreateForm({
       isVegetarianTagEnabled ||
       deduplicatedTags.includes('vegetarian');
 
-    onSubmit({
+    const payload: RecipeCreatePayload = {
       cookSteps: cookStepLines,
       ingredients: parsedIngredients.ingredients,
       isVegan,
@@ -413,7 +474,17 @@ export function RecipeCreateForm({
       tags: deduplicatedTags,
       title: normalizedTitle,
       totalTime: normalizedTotalTime
-    });
+    };
+    const check = checkRecipeScaling(
+      createRecipeFromPayload(payload, originalRecipe?.id ?? 'draft', originalRecipe)
+    );
+    setHasCheckedScaling(true);
+    if (check.issues.length && reviewedScalingDraft !== scalingDraftKey) {
+      setReviewedScalingDraft(scalingDraftKey);
+      focusScalingPanel();
+      return;
+    }
+    onSubmit(payload);
   }
 
   return (
@@ -531,10 +602,11 @@ export function RecipeCreateForm({
         <div className="grid gap-4 min-[900px]:grid-cols-2">
           <label className="grid gap-1.5" htmlFor={prepStepsFieldId}>
             <span className="text-[0.72rem] font-semibold uppercase tracking-[0.16em] text-app-muted-soft">
-              Prep steps
+              Prep steps (optional)
             </span>
             <textarea
               id={prepStepsFieldId}
+              ref={prepStepsRef}
               value={prepSteps}
               onChange={(event) => setPrepSteps(event.target.value)}
               placeholder={'Chop onion.\nMeasure spices.'}
@@ -548,6 +620,7 @@ export function RecipeCreateForm({
             </span>
             <textarea
               id={cookStepsFieldId}
+              ref={cookStepsRef}
               value={cookSteps}
               onChange={(event) => setCookSteps(event.target.value)}
               placeholder={'Heat oil and saute onion for 4 minutes.\nSimmer for 20 minutes.'}
@@ -555,6 +628,38 @@ export function RecipeCreateForm({
             />
           </label>
         </div>
+
+        <section
+          ref={scalingPanelRef}
+          tabIndex={-1}
+          aria-labelledby={scalingHeadingId}
+          className="grid gap-3 rounded-[20px] border border-app-line-strong bg-app-surface-strong p-3.5 focus-visible:outline focus-visible:outline-2 focus-visible:outline-app-brand"
+        >
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <h3 id={scalingHeadingId} className="m-0 text-[0.85rem] font-semibold uppercase tracking-[0.12em] text-app-muted-soft">
+              Serving size check
+            </h3>
+            <button
+              type="button"
+              className={cn(pillButtonClass, 'px-4 py-2 text-[0.84rem]')}
+              disabled={isSaving}
+              onClick={handleScalingCheck}
+            >
+              Check scaling
+            </button>
+          </div>
+          {scalingReview?.error ? <InlineMessage>{scalingReview.error}</InlineMessage> : null}
+          {scalingReview?.check ? (
+            <RecipeScalingFeedback
+              check={scalingReview.check}
+              isDisabled={isSaving}
+              onEdit={editScalingIssue}
+              onReplace={replaceScalingIssue}
+            />
+          ) : (
+            <p className="m-0 text-[0.84rem] text-app-muted">Check ingredient amounts and portion counts in your prep and cook steps when servings change.</p>
+          )}
+        </section>
 
         <label className="grid gap-1.5" htmlFor={notesFieldId}>
           <span className="text-[0.72rem] font-semibold uppercase tracking-[0.16em] text-app-muted-soft">
@@ -641,7 +746,7 @@ export function RecipeCreateForm({
             )}
             disabled={isSaving}
           >
-            {isSaving ? savingLabel : submitLabel}
+            {saveButtonLabel}
           </button>
         </div>
       </div>

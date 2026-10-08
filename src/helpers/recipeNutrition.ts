@@ -31,18 +31,25 @@ export function getRecipeNutritionPerServingValues(nutrition?: RecipeNutrition) 
     return null;
   }
 
-  const perServingValues = Object.fromEntries(
-    recipeNutritionValueKeys.map((key) => [
-      key,
-      nutrition.values[key] / nutrition.sourceServings
-    ])
-  ) as RecipeNutrition['values'];
+  const perServingValues: RecipeNutrition['values'] = {};
 
-  return Object.values(perServingValues).every(
-    (value) => Number.isFinite(value) && value >= 0
-  )
-    ? perServingValues
-    : null;
+  for (const key of recipeNutritionValueKeys) {
+    const value = nutrition.values[key];
+
+    if (value === undefined) {
+      continue;
+    }
+    if (!Number.isFinite(value) || value < 0) {
+      return null;
+    }
+    const perServingValue = value / nutrition.sourceServings;
+    if (!Number.isFinite(perServingValue)) {
+      return null;
+    }
+    perServingValues[key] = perServingValue;
+  }
+
+  return Object.keys(perServingValues).length ? perServingValues : null;
 }
 
 export function formatRecipeNutritionValue(

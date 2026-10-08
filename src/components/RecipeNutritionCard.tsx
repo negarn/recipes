@@ -154,18 +154,10 @@ function getNutritionRows(nutrition?: RecipeNutrition) {
     return null;
   }
 
-  const rows = nutritionMetricDefinitions.map(({ key, label, unit, depth = 0, dailyValue }) => ({
-    key,
-    label,
-    depth,
-    dailyValue,
-    scaledValue: perServingValues[key],
-    unit
-  }));
-
-  return rows.every((row) => Number.isFinite(row.scaledValue) && row.scaledValue >= 0)
-    ? rows
-    : null;
+  return nutritionMetricDefinitions.flatMap(({ key, label, unit, depth = 0, dailyValue }) => {
+    const scaledValue = perServingValues[key];
+    return scaledValue === undefined ? [] : [{ key, label, depth, dailyValue, scaledValue, unit }];
+  });
 }
 
 export function RecipeNutritionCard({
