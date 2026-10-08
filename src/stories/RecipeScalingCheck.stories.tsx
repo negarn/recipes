@@ -34,7 +34,7 @@ export const ReviewIssues: Story = {
   play: async ({ canvasElement }) => {
     const canvas = within(canvasElement);
     await userEvent.click(canvas.getByRole('button', { name: 'Check scaling' }));
-    await expect(canvas.getByRole('status')).toHaveTextContent('Found 2 items to review.');
+    await expect(within(canvas.getByRole('region', { name: 'Serving size check' })).getByRole('status')).toHaveTextContent('Found 2 items to review.');
     await expect(canvas.queryAllByRole('term')).toHaveLength(0);
   }
 };
@@ -51,7 +51,7 @@ export const FixAndSave: Story = {
     await userEvent.clear(prep);
     await userEvent.type(prep, 'Chop 250g of broccoli.');
     await userEvent.click(canvas.getByRole('button', { name: 'Scale count' }));
-    await expect(canvas.getByRole('status')).toHaveTextContent('No likely scaling issues found.');
+    await expect(within(canvas.getByRole('region', { name: 'Serving size check' })).getByRole('status')).toHaveTextContent('No likely scaling issues found.');
     await userEvent.click(canvas.getByRole('button', { name: 'Save recipe' }));
     await expect(args.onSubmit).toHaveBeenCalledWith(expect.objectContaining({
       prepSteps: ['Chop 250g of broccoli.'],
@@ -67,7 +67,7 @@ export const KeepFixed: Story = {
     await userEvent.click(canvas.getByRole('button', { name: 'Check scaling' }));
     await userEvent.click(canvas.getAllByRole('button', { name: 'Keep fixed' })[0]);
     await userEvent.click(canvas.getByRole('button', { name: 'Keep fixed' }));
-    await expect(canvas.getByRole('status')).toHaveTextContent('No likely scaling issues found.');
+    await expect(within(canvas.getByRole('region', { name: 'Serving size check' })).getByRole('status')).toHaveTextContent('No likely scaling issues found.');
     await userEvent.click(canvas.getByRole('button', { name: 'Save recipe' }));
     await expect(args.onSubmit).toHaveBeenCalledWith(expect.objectContaining({
       prepSteps: ['Chop {{fixed|250 of broccoli}}.'],
@@ -82,7 +82,7 @@ export const SaveAnyway: Story = {
     const canvas = within(canvasElement);
     await userEvent.click(canvas.getByRole('button', { name: 'Save recipe' }));
     await expect(args.onSubmit).not.toHaveBeenCalled();
-    await expect(canvas.getByRole('status')).toHaveTextContent('Found 2 items to review.');
+    await expect(within(canvas.getByRole('region', { name: 'Serving size check' })).getByRole('status')).toHaveTextContent('Found 2 items to review.');
     await userEvent.click(canvas.getByRole('button', { name: 'Save anyway' }));
     await expect(args.onSubmit).toHaveBeenCalledTimes(1);
     await userEvent.type(canvas.getByRole('textbox', { name: 'Cook steps' }), ' Serve in 2 bowls.');
@@ -143,7 +143,7 @@ export const AmountMismatch: Story = {
     const canvas = within(canvasElement);
     await userEvent.click(canvas.getByRole('button', { name: 'Save recipe' }));
     await expect(args.onSubmit).not.toHaveBeenCalled();
-    await expect(canvas.getByRole('status')).toHaveTextContent('Found 1 item to review.');
+    await expect(within(canvas.getByRole('region', { name: 'Serving size check' })).getByRole('status')).toHaveTextContent('Found 1 item to review.');
     await expect(canvas.getByText('Amount mismatch', { exact: true })).toBeVisible();
     await expect(canvas.getByText(/The prep and cook amounts total 2.5 tsp of Ground turmeric, but the ingredient list has 1.5 tsp/)).toBeVisible();
     await userEvent.click(canvas.getByRole('button', { name: 'Edit step' }));
@@ -165,21 +165,21 @@ export const MismatchUpdates: Story = {
   play: async ({ canvasElement }) => {
     const canvas = within(canvasElement);
     await userEvent.click(canvas.getByRole('button', { name: 'Check scaling' }));
-    await expect(canvas.getByRole('status')).toHaveTextContent('No likely scaling issues found.');
+    await expect(within(canvas.getByRole('region', { name: 'Serving size check' })).getByRole('status')).toHaveTextContent('No likely scaling issues found.');
     const prep = canvas.getByRole('textbox', { name: 'Prep steps (optional)' });
     await userEvent.clear(prep);
     await userEvent.type(prep, 'Add 2 tsp of turmeric to the marinade.');
-    await expect(canvas.getByRole('status')).toHaveTextContent('Found 1 item to review.');
+    await expect(within(canvas.getByRole('region', { name: 'Serving size check' })).getByRole('status')).toHaveTextContent('Found 1 item to review.');
     const ingredients = canvas.getByRole('textbox', { name: /Ingredients and amounts/ });
     await userEvent.clear(ingredients);
     await userEvent.type(ingredients, '2.5 tsp | Ground turmeric');
-    await expect(canvas.getByRole('status')).toHaveTextContent('No likely scaling issues found.');
+    await expect(within(canvas.getByRole('region', { name: 'Serving size check' })).getByRole('status')).toHaveTextContent('No likely scaling issues found.');
     await userEvent.clear(ingredients);
     await userEvent.type(ingredients, '1.5 tsp | Ground turmeric');
-    await expect(canvas.getByRole('status')).toHaveTextContent('Found 1 item to review.');
+    await expect(within(canvas.getByRole('region', { name: 'Serving size check' })).getByRole('status')).toHaveTextContent('Found 1 item to review.');
     await userEvent.clear(prep);
     await userEvent.type(prep, 'Add 1 tsp of turmeric to the marinade.');
-    await expect(canvas.getByRole('status')).toHaveTextContent('No likely scaling issues found.');
+    await expect(within(canvas.getByRole('region', { name: 'Serving size check' })).getByRole('status')).toHaveTextContent('No likely scaling issues found.');
   }
 };
 
@@ -210,7 +210,7 @@ export const PrepAmountMismatch: Story = {
   play: async ({ canvasElement, args }) => {
     const canvas = within(canvasElement);
     await userEvent.click(canvas.getByRole('button', { name: 'Check scaling' }));
-    await expect(canvas.getByRole('status')).toHaveTextContent('Found 1 item to review.');
+    await expect(within(canvas.getByRole('region', { name: 'Serving size check' })).getByRole('status')).toHaveTextContent('Found 1 item to review.');
     await expect(canvas.getByText(/This step specifies 3g of Fresh parsley, but the ingredient list has 30g/)).toBeVisible();
     await userEvent.click(canvas.getByRole('button', { name: 'Edit step' }));
     const prep = canvas.getByRole('textbox', { name: 'Prep steps (optional)' }) as HTMLTextAreaElement;
@@ -218,7 +218,7 @@ export const PrepAmountMismatch: Story = {
     await expect(prep.value.slice(prep.selectionStart, prep.selectionEnd)).toBe('3g of parsley');
     await userEvent.clear(prep);
     await userEvent.type(prep, 'Chop 30g of parsley.');
-    await expect(canvas.getByRole('status')).toHaveTextContent('No likely scaling issues found.');
+    await expect(within(canvas.getByRole('region', { name: 'Serving size check' })).getByRole('status')).toHaveTextContent('No likely scaling issues found.');
     await userEvent.click(canvas.getByRole('button', { name: 'Save recipe' }));
     await expect(args.onSubmit).toHaveBeenCalledWith(expect.objectContaining({ prepSteps: ['Chop 30g of parsley.'] }));
   }

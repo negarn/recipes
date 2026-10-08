@@ -1,8 +1,11 @@
 import { cn, pillButtonClass } from '../helpers/uiClasses';
 import type { RecipeScalingCheck, RecipeScalingIssue } from '../helpers/recipeScalingValidation';
+import { renderMethodStepText } from '../helpers/recipeDisplay';
+import type { Recipe } from '../types/recipe';
 
 type RecipeScalingFeedbackProps = {
   check: RecipeScalingCheck;
+  recipe: Recipe;
   isDisabled: boolean;
   onEdit: (issue: RecipeScalingIssue) => void;
   onReplace: (issue: RecipeScalingIssue, replacement: string) => void;
@@ -17,6 +20,7 @@ function getIssueLabel(issue: RecipeScalingIssue): string {
 
 export function RecipeScalingFeedback({
   check,
+  recipe,
   isDisabled,
   onEdit,
   onReplace
@@ -45,7 +49,7 @@ export function RecipeScalingFeedback({
           >
             <div className="flex flex-wrap items-baseline gap-x-3 gap-y-1">
               <strong className="text-[0.88rem]">
-                {issue.sectionTitle} step {issue.stepIndex + 1}: “{issue.excerpt}”
+                {issue.sectionTitle} step {issue.stepIndex + 1}: “{renderMethodStepText(issue.excerpt, recipe)}”
               </strong>
               <span className="text-[0.74rem] font-semibold text-app-muted-soft">
                 {getIssueLabel(issue)}

@@ -42,6 +42,7 @@ import { parseBookmarkBodyLines, setBookmarkBodyCheckboxLineState } from '../hel
 import { getBookmarkLineTimerId } from '../helpers/bookmarkTimers';
 import { formatRecipeTitle } from '../helpers/recipeMetadata';
 import { getMethodStepTimerDurationMs } from '../helpers/recipeTiming';
+import { getRecipeBookmarkDisplay } from '../helpers/recipeBookmarkDisplay';
 import { scrollToPageTop } from '../helpers/scrollPosition';
 import { cn } from '../helpers/uiClasses';
 import { useAsyncAction } from '../hooks/useAsyncAction';
@@ -408,7 +409,7 @@ export function BookmarksPage() {
             : null;
 
           return bookmarks.map((bookmark) => ({
-            bookmark,
+            bookmark: getRecipeBookmarkDisplay(bookmark, sourceRecipe),
             recipeId,
             sourceRecipeTitle
           }));

@@ -21,7 +21,11 @@ Use `npm run dev` to go back to your normal local data. To refresh the mock snap
   ![Recipe catalog browsing with search, pagination, and audience tabs](docs/recipe-catalog-search-tabs.gif)
 - Create and edit recipes from the recipes page, including ingredients, tags, nutrition, servings, and notes.
 
+  Prep and cook fields show readable amounts and ingredient names. Existing serving-size links stay intact when you edit the surrounding text. Editing a linked amount or ingredient label replaces that link with the text you entered; the serving-size check reviews the edited text when you save.
+
   The editor's **Check scaling** button compares prep and cook amounts at smaller and doubled serving sizes. It reports broken ingredient links, likely unscaled quantities, missing quantities, and amounts that disagree with the ingredient list. Quantified uses across steps are added together, so a split such as 1 tsp in prep plus 1/2 tsp in cooking matches a 1.5 tsp ingredient total. Use **Edit step** to correct spelling or units, **Scale count** for portions such as burgers and bowls, or **Keep fixed** for an intentional fixed amount. Saving runs the same check and offers **Save anyway** when there are findings. These suggestions are heuristic: pinches, worded amounts, and ingredient fractions such as “1/3 of spinach” are left alone.
+
+  **Check consistency** reviews ingredient names against the established naming rules and ingredients in your other recipes. It suggests consistent names such as Ground beef and Feta, likely ingredient-list typos, and duplicate ingredient lines. In prep and cook steps, it only compares recognized ingredient spelling variants with your collection, including visible ingredient-link labels while preserving their IDs; it does not guess typo corrections for ordinary prose. Spelling variants such as chili/chilli and yogurt/yoghurt are compared with the spellings in your other recipes, without enforcing a regional standard. If your collection uses both versions, the check reports the conflict for manual review. Use **Edit ingredient**, **Edit step**, or a suggested correction; ambiguous ingredient-list spellings require a manual edit. Results update as you edit, and saving runs both checks with the same **Save anyway** option. Suggestions only affect the current draft when you apply them. This focused ingredient check is heuristic and may miss general spelling mistakes or unfamiliar ingredients.
 
   ![Create and edit recipes on the recipes page](docs/add-edit-recipe.gif)
 - Open recipe details with scaled ingredients, grouped method steps, nutrition, ratings, bookmarks, and optional step timers.
@@ -125,6 +129,12 @@ npm run test           # run tests in watch mode
 npm run test:run       # run tests once
 npm run storybook      # start Storybook
 npm run build-storybook # build Storybook for production
+```
+
+The markup regression tests cover recipe editing, recipe steps at different serving sizes, review feedback, and saved bookmarks, including broken links. To run the same checks against every recipe in a local catalog:
+
+```bash
+RECIPE_MARKUP_CATALOG="$HOME/.recipes/recipes.json" npm run test:run -- src/helpers/recipeMarkup.test.ts
 ```
 
 ## Persistence

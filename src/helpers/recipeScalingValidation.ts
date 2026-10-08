@@ -7,6 +7,7 @@ import {
 } from './ingredientText';
 import { inspectMethodStepText, parseQuantityLabel, renderMethodStepText } from './recipeDisplay';
 import { formatQuantityWithUnit } from './quantityFormatting';
+import { RECIPE_METHOD_MARKUP_PATTERN } from './recipeMethodTokens';
 
 export type RecipeScalingIssue = {
   code: 'invalid-link' | 'unchanged-quantity' | 'missing-quantity' | 'amount-mismatch';
@@ -159,7 +160,7 @@ function findIngredient(tail: string, aliases: IngredientAlias[], allowSpellingM
 }
 
 function getLiteralStep(step: string): string {
-  return step.replace(/{{.*?}}/g, (match) => ' '.repeat(match.length));
+  return step.replace(RECIPE_METHOD_MARKUP_PATTERN, (match) => ' '.repeat(match.length));
 }
 
 function getMethodQuantities(
@@ -355,7 +356,7 @@ function renderQuantityCheckStep(step: string, recipe: Recipe): {
     text += value;
   }
 
-  for (const match of step.matchAll(/{{.*?}}/g)) {
+  for (const match of step.matchAll(RECIPE_METHOD_MARKUP_PATTERN)) {
     append(step.slice(sourceOffset, match.index), sourceOffset, match.index, false);
     const inspection = inspectMethodStepText(match[0], recipe, recipe.defaultServings);
     const tokenType = match[0].slice(2, -2).split('|')[0].trim();
@@ -521,15 +522,6 @@ export function checkRecipeScaling(recipe: Recipe): RecipeScalingCheck {
         issues.push({
           ...location, ...issue, excerpt: step.slice(issue.start, issue.end),
           code: 'invalid-link', severity: 'error'
-        });
-      }
-      const literalStep = getLiteralStep(step);
-      for (const match of literalStep.matchAll(/{{[^\n]*|}}/g)) {
-        const end = match.index + match[0].length;
-        issues.push({
-          ...location, start: match.index, end, excerpt: step.slice(match.index, end),
-          code: 'invalid-link', severity: 'error',
-          message: 'This amount link has unmatched braces. Complete or remove the link.'
         });
       }
       function isAlreadyReported(issue: LiteralIssue): boolean {

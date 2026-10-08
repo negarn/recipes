@@ -294,6 +294,7 @@ export function HomePage() {
           errorMessage={recipeCreateAction.error}
           initialValues={recipeFormInitialValues}
           originalRecipe={recipeFormState.recipe ?? undefined}
+          recipes={recipes}
           formId={recipeFormId}
           isSaving={recipeCreateAction.isPending}
           savingLabel={recipeFormSavingLabel}

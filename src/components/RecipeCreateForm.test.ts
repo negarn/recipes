@@ -1,5 +1,7 @@
 import { describe, expect, it } from 'vitest';
-import { createRecipeCreateFormInitialValues, parseNutritionDraft } from './RecipeCreateForm';
+import { createElement } from 'react';
+import { renderToStaticMarkup } from 'react-dom/server';
+import { RecipeCreateForm, createRecipeCreateFormInitialValues, parseNutritionDraft } from './RecipeCreateForm';
 import { normalizeCustomRecipe } from '../helpers/customRecipes';
 import { getRecipeNutritionPerServingValues } from '../helpers/recipeNutrition';
 import type { Recipe } from '../types/recipe';
@@ -51,6 +53,25 @@ const recipeWithNutrition: Recipe = {
 };
 
 describe('createRecipeCreateFormInitialValues', () => {
+  it('renders linked recipe steps as readable text in both editor fields', () => {
+    const recipe: Recipe = {
+      ...recipeWithNutrition,
+      ingredients: [{ id: 'green-onions', name: 'Green onion', amount: { type: 'scalable', quantity: 5 } }],
+      sections: [
+        { id: 'prep', title: 'Prep', steps: ['Finely chop {{ingredient|green-onions|green onion|green onions}}.'] },
+        { id: 'cook', title: 'Cook', steps: ['Add {{ingredient|green-onions|green onion|green onions}}.'] }
+      ]
+    };
+    const markup = renderToStaticMarkup(createElement(RecipeCreateForm, {
+      initialValues: createRecipeCreateFormInitialValues(recipe), originalRecipe: recipe,
+      formId: 'edit-recipe', isSaving: false, savingLabel: 'Saving…', closeLabel: 'Close', submitLabel: 'Save recipe',
+      onClose: () => {}, onSubmit: () => {}
+    }));
+    expect(markup).toContain('Finely chop 5 green onions.');
+    expect(markup).toContain('Add 5 green onions.');
+    expect(markup).not.toContain('{{ingredient|');
+  });
+
   it('uses the recipe source serving count when editing', () => {
     const initialValues = createRecipeCreateFormInitialValues(recipeWithNutrition, {
       note: 'Scale this on the recipe page.'

@@ -136,7 +136,7 @@ export function deriveBookmarkLineTimersFromSelection({
 
   const selectionLineTimers: Record<number, number> = {};
 
-  parseBookmarkBodyLines(selectionText).forEach((line, lineIndex) => {
+  parseBookmarkBodyLines(renderMethodStepText(selectionText, recipe, servingCount, defaultServingCount)).forEach((line, lineIndex) => {
     if (line.kind === 'blank') {
       return;
     }

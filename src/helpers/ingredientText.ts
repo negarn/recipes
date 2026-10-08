@@ -92,6 +92,13 @@ export function normalizeIngredientWhitespace(value: string) {
   return value.trim().replace(/\s+/g, ' ');
 }
 
+export function getCanonicalIngredientName(name: string): string | undefined {
+  const key = normalizeIngredientWhitespace(name).toLowerCase();
+  return Object.prototype.hasOwnProperty.call(canonicalIngredientNameByLowercase, key)
+    ? canonicalIngredientNameByLowercase[key]
+    : undefined;
+}
+
 function singularizeIngredientWord(word: string) {
   const normalizedWord = word.toLowerCase();
 
@@ -179,8 +186,7 @@ function formatIngredientNameCase(name: string) {
 }
 
 export function normalizeIngredientName(name: string, unit?: IngredientUnit) {
-  const normalizedName = normalizeIngredientWhitespace(name).toLowerCase();
-  const canonicalName = canonicalIngredientNameByLowercase[normalizedName] ?? name;
+  const canonicalName = getCanonicalIngredientName(name) ?? name;
   const formattedName = formatIngredientNameCase(canonicalName);
 
   if (formattedName === 'Rice' && unit?.singular === 'cup') {

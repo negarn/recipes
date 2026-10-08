@@ -3,8 +3,19 @@ import { CloseIcon } from './CloseIcon';
 import { IconActionButton } from './IconActionButton';
 import { InlineMessage } from './InlineMessage';
 import { RecipeRatingSelector } from './RecipeRatingSelector';
+import { RecipeConsistencyFeedback } from './RecipeConsistencyFeedback';
 import { RecipeScalingFeedback } from './RecipeScalingFeedback';
 import { createRecipeFromPayload } from '../helpers/recipeCreation';
+import {
+  applyRecipeMethodDraftEdit,
+  createRecipeMethodDraft,
+  getRecipeMethodDraftSelection
+} from '../helpers/recipeMethodDraft';
+import {
+  checkRecipeConsistency,
+  replaceConsistencyIssueText,
+  type RecipeConsistencyIssue
+} from '../helpers/recipeConsistencyValidation';
 import {
   checkRecipeScaling,
   getMethodStepDraftRange,
@@ -37,6 +48,8 @@ const nutritionFieldDefinitions: Array<{
 ];
 
 type RecipeFormNutritionDraft = Record<keyof RecipeNutrition['values'], string>;
+
+const EMPTY_RECIPE_CATALOG: Recipe[] = [];
 
 export type RecipeCreateFormInitialValues = {
   cookSteps: string;
@@ -253,6 +266,7 @@ export function RecipeCreateForm({
   errorMessage,
   initialValues,
   originalRecipe,
+  recipes = EMPTY_RECIPE_CATALOG,
   formId,
   isSaving,
   savingLabel,
@@ -264,6 +278,7 @@ export function RecipeCreateForm({
   errorMessage?: string | null;
   initialValues: RecipeCreateFormInitialValues;
   originalRecipe?: Recipe;
+  recipes?: Recipe[];
   formId: string;
   isSaving: boolean;
   savingLabel: string;
@@ -301,26 +316,28 @@ export function RecipeCreateForm({
   });
   const [validationError, setValidationError] = useState<string | null>(null);
   const [hasCheckedScaling, setHasCheckedScaling] = useState(false);
+  const [hasCheckedConsistency, setHasCheckedConsistency] = useState(false);
   const [reviewedScalingDraft, setReviewedScalingDraft] = useState<string | null>(null);
+  const [reviewedConsistencyDraft, setReviewedConsistencyDraft] = useState<string | null>(null);
+  const ingredientsRef = useRef<HTMLTextAreaElement>(null);
   const prepStepsRef = useRef<HTMLTextAreaElement>(null);
   const cookStepsRef = useRef<HTMLTextAreaElement>(null);
   const scalingPanelRef = useRef<HTMLElement>(null);
   const scalingHeadingId = useId();
-  const scalingDraftKey = JSON.stringify([ingredients, prepSteps, cookSteps, servings]);
-  const scalingReview = useMemo(() => {
-    if (!hasCheckedScaling) {
-      return null;
-    }
+  const consistencyPanelRef = useRef<HTMLElement>(null);
+  const consistencyHeadingId = useId();
+  const reviewDraftKey = JSON.stringify([ingredients, prepSteps, cookSteps, servings]);
+  const draftReview = useMemo(() => {
     const parsedIngredients = parseIngredientLines(ingredients);
     const servingCount = Number(servings);
     if (parsedIngredients.error) {
-      return { error: parsedIngredients.error, check: null };
+      return { error: parsedIngredients.error, recipe: null };
     }
     if (!parsedIngredients.ingredients.length) {
-      return { error: 'Add ingredients before checking scaling.', check: null };
+      return { error: 'Add ingredients before checking the recipe.', recipe: null };
     }
     if (!Number.isSafeInteger(servingCount) || servingCount <= 0) {
-      return { error: 'Enter a serving size greater than 0 before checking scaling.', check: null };
+      return { error: 'Enter a serving size greater than 0 before checking the recipe.', recipe: null };
     }
     const recipe = createRecipeFromPayload(
       {
@@ -338,10 +355,21 @@ export function RecipeCreateForm({
       originalRecipe?.id ?? 'draft',
       originalRecipe
     );
-    return { error: null, check: checkRecipeScaling(recipe) };
-  }, [hasCheckedScaling, ingredients, prepSteps, cookSteps, servings, originalRecipe]);
+    return { error: null, recipe };
+  }, [ingredients, prepSteps, cookSteps, servings, originalRecipe]);
+  const methodRecipe = draftReview.recipe ?? originalRecipe;
+  const prepMethodDraft = useMemo(() => createRecipeMethodDraft(prepSteps, methodRecipe), [prepSteps, methodRecipe]);
+  const cookMethodDraft = useMemo(() => createRecipeMethodDraft(cookSteps, methodRecipe), [cookSteps, methodRecipe]);
+  const scalingCheck = useMemo(() => hasCheckedScaling && draftReview.recipe
+    ? checkRecipeScaling(draftReview.recipe) : null, [hasCheckedScaling, draftReview]);
+  const consistencyCheck = useMemo(() => hasCheckedConsistency && draftReview.recipe
+    ? checkRecipeConsistency(draftReview.recipe, recipes) : null, [hasCheckedConsistency, draftReview, recipes]);
+  const hasScalingWarnings = Boolean(scalingCheck?.issues.length);
+  const hasConsistencyWarnings = Boolean(consistencyCheck?.issues.length);
   const canSaveWithWarnings =
-    reviewedScalingDraft === scalingDraftKey && Boolean(scalingReview?.check?.issues.length);
+    (hasScalingWarnings || hasConsistencyWarnings) &&
+    (!hasScalingWarnings || reviewedScalingDraft === reviewDraftKey) &&
+    (!hasConsistencyWarnings || reviewedConsistencyDraft === reviewDraftKey);
   let saveButtonLabel = submitLabel;
   if (isSaving) {
     saveButtonLabel = savingLabel;
@@ -355,7 +383,53 @@ export function RecipeCreateForm({
 
   function handleScalingCheck() {
     setHasCheckedScaling(true);
-    setReviewedScalingDraft(scalingDraftKey);
+    setReviewedScalingDraft(reviewDraftKey);
+  }
+
+  function handleConsistencyCheck() {
+    setHasCheckedConsistency(true);
+    setReviewedConsistencyDraft(reviewDraftKey);
+  }
+
+  function getConsistencyIssueRange(issue: RecipeConsistencyIssue) {
+    const drafts = { ingredients, prep: prepSteps, cook: cookSteps };
+    const draft = drafts[issue.field];
+    const range = getMethodStepDraftRange(draft, issue.lineIndex);
+    if (!range) {
+      return null;
+    }
+    let nameOffset = 0;
+    if (issue.field === 'ingredients') {
+      const line = draft.slice(range.start, range.end);
+      const delimiterIndex = line.indexOf('|');
+      nameOffset = delimiterIndex + 1 + line.slice(delimiterIndex + 1).search(/\S/);
+    }
+    return { draft, start: range.start + nameOffset + issue.start, end: range.start + nameOffset + issue.end };
+  }
+
+  function editConsistencyIssue(issue: RecipeConsistencyIssue) {
+    const fields = { ingredients: ingredientsRef, prep: prepStepsRef, cook: cookStepsRef };
+    const field = fields[issue.field].current;
+    const range = getConsistencyIssueRange(issue);
+    if (field && range) {
+      const selection = issue.field === 'ingredients' ? range : getRecipeMethodDraftSelection(
+        issue.field === 'prep' ? prepMethodDraft : cookMethodDraft, range.start, range.end
+      );
+      field.focus();
+      field.setSelectionRange(selection.start, selection.end);
+    }
+  }
+
+  function replaceConsistencyIssue(issue: RecipeConsistencyIssue) {
+    const range = getConsistencyIssueRange(issue);
+    if (!range) {
+      return;
+    }
+    const replacement = replaceConsistencyIssueText(range.draft, {
+      ...issue, start: range.start, end: range.end
+    });
+    const setters = { ingredients: setIngredients, prep: setPrepSteps, cook: setCookSteps };
+    setters[issue.field](replacement);
   }
 
   function editScalingIssue(issue: RecipeScalingIssue) {
@@ -363,8 +437,12 @@ export function RecipeCreateForm({
     const field = issue.sectionId === 'prep' ? prepStepsRef.current : cookStepsRef.current;
     const range = getMethodStepDraftRange(draft, issue.stepIndex);
     if (field && range) {
+      const selection = getRecipeMethodDraftSelection(
+        issue.sectionId === 'prep' ? prepMethodDraft : cookMethodDraft,
+        range.start + issue.start, range.start + issue.end
+      );
       field.focus();
-      field.setSelectionRange(range.start + issue.start, range.start + issue.end);
+      field.setSelectionRange(selection.start, selection.end);
     }
   }
 
@@ -475,13 +553,21 @@ export function RecipeCreateForm({
       title: normalizedTitle,
       totalTime: normalizedTotalTime
     };
-    const check = checkRecipeScaling(
-      createRecipeFromPayload(payload, originalRecipe?.id ?? 'draft', originalRecipe)
-    );
+    const recipe = createRecipeFromPayload(payload, originalRecipe?.id ?? 'draft', originalRecipe);
+    const check = checkRecipeScaling(recipe);
+    const consistency = checkRecipeConsistency(recipe, recipes);
     setHasCheckedScaling(true);
-    if (check.issues.length && reviewedScalingDraft !== scalingDraftKey) {
-      setReviewedScalingDraft(scalingDraftKey);
-      focusScalingPanel();
+    setHasCheckedConsistency(true);
+    const needsScalingReview = check.issues.length > 0 && reviewedScalingDraft !== reviewDraftKey;
+    const needsConsistencyReview = consistency.issues.length > 0 && reviewedConsistencyDraft !== reviewDraftKey;
+    if (needsScalingReview || needsConsistencyReview) {
+      setReviewedScalingDraft(reviewDraftKey);
+      setReviewedConsistencyDraft(reviewDraftKey);
+      if (needsScalingReview) {
+        focusScalingPanel();
+      } else {
+        requestAnimationFrame(() => consistencyPanelRef.current?.focus());
+      }
       return;
     }
     onSubmit(payload);
@@ -589,6 +675,7 @@ export function RecipeCreateForm({
           </span>
           <textarea
             id={ingredientsFieldId}
+            ref={ingredientsRef}
             value={ingredients}
             onChange={(event) => setIngredients(event.target.value)}
             placeholder={'2 tbsp | olive oil\n400 g | canned tomatoes'}
@@ -607,8 +694,8 @@ export function RecipeCreateForm({
             <textarea
               id={prepStepsFieldId}
               ref={prepStepsRef}
-              value={prepSteps}
-              onChange={(event) => setPrepSteps(event.target.value)}
+              value={prepMethodDraft.text}
+              onChange={(event) => setPrepSteps(applyRecipeMethodDraftEdit(prepMethodDraft, event.target.value))}
               placeholder={'Chop onion.\nMeasure spices.'}
               className={cn(textareaClass, 'min-h-[8.5rem] rounded-[18px] text-[0.96rem]')}
             />
@@ -621,8 +708,8 @@ export function RecipeCreateForm({
             <textarea
               id={cookStepsFieldId}
               ref={cookStepsRef}
-              value={cookSteps}
-              onChange={(event) => setCookSteps(event.target.value)}
+              value={cookMethodDraft.text}
+              onChange={(event) => setCookSteps(applyRecipeMethodDraftEdit(cookMethodDraft, event.target.value))}
               placeholder={'Heat oil and saute onion for 4 minutes.\nSimmer for 20 minutes.'}
               className={cn(textareaClass, 'min-h-[8.5rem] rounded-[18px] text-[0.96rem]')}
             />
@@ -648,16 +735,39 @@ export function RecipeCreateForm({
               Check scaling
             </button>
           </div>
-          {scalingReview?.error ? <InlineMessage>{scalingReview.error}</InlineMessage> : null}
-          {scalingReview?.check ? (
+          {hasCheckedScaling && draftReview.error ? <InlineMessage>{draftReview.error}</InlineMessage> : null}
+          {scalingCheck && draftReview.recipe ? (
             <RecipeScalingFeedback
-              check={scalingReview.check}
+              check={scalingCheck}
+              recipe={draftReview.recipe}
               isDisabled={isSaving}
               onEdit={editScalingIssue}
               onReplace={replaceScalingIssue}
             />
           ) : (
             <p className="m-0 text-[0.84rem] text-app-muted">Check ingredient amounts and portion counts in your prep and cook steps when servings change.</p>
+          )}
+        </section>
+
+        <section
+          ref={consistencyPanelRef}
+          tabIndex={-1}
+          aria-labelledby={consistencyHeadingId}
+          className="grid gap-3 rounded-[20px] border border-app-line-strong bg-app-surface-strong p-3.5 focus-visible:outline focus-visible:outline-2 focus-visible:outline-app-brand"
+        >
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <h3 id={consistencyHeadingId} className="m-0 text-[0.85rem] font-semibold uppercase tracking-[0.12em] text-app-muted-soft">
+              Consistency check
+            </h3>
+            <button type="button" className={cn(pillButtonClass, 'px-4 py-2 text-[0.84rem]')} disabled={isSaving} onClick={handleConsistencyCheck}>
+              Check consistency
+            </button>
+          </div>
+          {hasCheckedConsistency && draftReview.error ? <InlineMessage>{draftReview.error}</InlineMessage> : null}
+          {consistencyCheck ? (
+            <RecipeConsistencyFeedback check={consistencyCheck} isDisabled={isSaving} onEdit={editConsistencyIssue} onReplace={replaceConsistencyIssue} />
+          ) : (
+            <p className="m-0 text-[0.84rem] text-app-muted">Check ingredient names, duplicate ingredients, and likely typos in the ingredient list. Compare ingredient spelling in prep and cook steps with your other recipes.</p>
           )}
         </section>
 

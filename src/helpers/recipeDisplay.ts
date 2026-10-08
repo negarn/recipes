@@ -11,8 +11,8 @@ import {
   formatQuantityWithUnit,
   scaleQuantity
 } from './quantityFormatting';
+import { getMethodTokenFallbackText, RECIPE_METHOD_MARKUP_PATTERN } from './recipeMethodTokens';
 
-const RECIPE_METHOD_TOKEN_PATTERN = /{{(.*?)}}/g;
 const LITERAL_CONTAINER_PATTERN = '(?:tin|tins|pouch|pouches|packet|packets|can|cans|jar|jars)';
 const LITERAL_QUANTITY_PATTERN =
   '(?:\\d+\\s*(?:&|and)\\s*\\d+\\/\\d+|\\d+\\s+\\d+\\/\\d+|\\d+\\/\\d+|\\d+(?:\\.\\d+)?)';
@@ -254,14 +254,6 @@ function findMethodTokenIngredient(
   });
 
   return matchingIngredients.length === 1 ? matchingIngredients[0] : undefined;
-}
-
-function getMethodTokenIngredientFallbackLabel(
-  ingredientId: string,
-  nounSingular?: string,
-  nounPlural?: string
-) {
-  return nounPlural || nounSingular || ingredientId.replace(/-+/g, ' ');
 }
 
 function forEachExpandedIngredientAlias(
@@ -672,20 +664,28 @@ export function inspectMethodStepText(
   const placeholderValues: string[] = [];
   const issues: MethodTokenIssue[] = [];
   const ingredientAliasesById = getRecipeIngredientAliases(scaledRecipe);
-  let renderedStep = step.replace(RECIPE_METHOD_TOKEN_PATTERN, (match, rawToken, start) => {
+  let renderedStep = step.replace(RECIPE_METHOD_MARKUP_PATTERN, (match, start: number) => {
     function reportIssue(message: string) {
       issues.push({ start, end: start + match.length, message });
     }
 
-    const [tokenType, ...tokenParts] = rawToken
+    function invalidLink(message: string): string {
+      reportIssue(message);
+      return createMethodTextPlaceholder(getMethodTokenFallbackText(match), placeholderValues);
+    }
+
+    if (!match.startsWith('{{') || !match.endsWith('}}') || match.startsWith('{{{') || match.endsWith('}}}')) {
+      return invalidLink('This amount link has unmatched braces. Complete or remove the link.');
+    }
+
+    const [tokenType, ...tokenParts] = match.slice(2, -2)
       .split('|')
-      .map((part: string) => part.trim());
+      .map((part) => part.trim());
 
     if (tokenType === 'ingredient') {
       const [ingredientId, nounSingular, nounPlural] = tokenParts;
       if (!ingredientId || tokenParts.length > 3) {
-        reportIssue('This ingredient link is incomplete or has extra fields. Link it to an ingredient again.');
-        return match;
+        return invalidLink('This ingredient link is incomplete or has extra fields. Link it to an ingredient again.');
       }
       const ingredient = findMethodTokenIngredient(
         scaledRecipe,
@@ -696,12 +696,7 @@ export function inspectMethodStepText(
       );
 
       if (!ingredient) {
-        reportIssue(`The ingredient link "${ingredientId}" cannot be matched. Check the ingredient name or link.`);
-        return getMethodTokenIngredientFallbackLabel(
-          ingredientId,
-          nounSingular,
-          nounPlural
-        );
+        return invalidLink(`The ingredient link "${ingredientId}" cannot be matched. Check the ingredient name or link.`);
       }
 
       return createMethodTextPlaceholder(
@@ -719,8 +714,7 @@ export function inspectMethodStepText(
     if (tokenType === 'ingredient-portion') {
       // Render a fraction of the ingredient amount, such as 1/4 of the ginger.
       if (tokenParts.length !== 2) {
-        reportIssue('This ingredient portion needs an ingredient and a fraction, such as 1/2.');
-        return match;
+        return invalidLink('This ingredient portion needs an ingredient and a fraction, such as 1/2.');
       }
 
       const [ingredientId, portionLabel] = tokenParts;
@@ -729,8 +723,7 @@ export function inspectMethodStepText(
       );
 
       if (!ingredient || !portionLabel) {
-        reportIssue('This ingredient portion has a missing ingredient or fraction.');
-        return match;
+        return invalidLink('This ingredient portion has a missing ingredient or fraction.');
       }
 
       const amountLabel = formatIngredientPortionAmount(
@@ -741,8 +734,7 @@ export function inspectMethodStepText(
       );
 
       if (amountLabel === null) {
-        reportIssue('This ingredient portion has an invalid fraction.');
-        return match;
+        return invalidLink('This ingredient portion has an invalid fraction.');
       }
 
       return createMethodTextPlaceholder(amountLabel, placeholderValues);
@@ -753,13 +745,11 @@ export function inspectMethodStepText(
       const quantity = Number(quantityLabel);
 
       if (!quantityLabel || !Number.isFinite(quantity) || quantity < 0 || tokenParts.length > 4) {
-        reportIssue('This amount link needs a valid number and optional unit.');
-        return match;
+        return invalidLink('This amount link needs a valid number and optional unit.');
       }
 
       if (separatorLabel && separatorLabel !== 'none' && separatorLabel !== 'space') {
-        reportIssue('This amount link has an invalid unit separator. Use none or space.');
-        return match;
+        return invalidLink('This amount link has an invalid unit separator. Use none or space.');
       }
 
       return createMethodTextPlaceholder(
@@ -784,15 +774,13 @@ export function inspectMethodStepText(
 
     if (tokenType === 'fixed') {
       if (tokenParts.length !== 1 || !tokenParts[0]) {
-        reportIssue('This fixed amount needs the text to keep unchanged.');
-        return match;
+        return invalidLink('This fixed amount needs the text to keep unchanged.');
       }
 
       return createMethodTextPlaceholder(tokenParts[0], placeholderValues);
     }
 
-    reportIssue('This step contains an unknown amount link. Edit or remove the link.');
-    return match;
+    return invalidLink('This step contains an unknown amount link. Edit or remove the link.');
   });
 
   if (servingCount !== scaledRecipe.defaultServings) {
@@ -828,9 +816,12 @@ export function inspectMethodStepText(
 
 export function renderMethodStepText(
   step: string,
-  recipe: Recipe,
-  servingCount: number,
-  defaultServingCount = recipe.defaultServings
-) {
+  recipe?: Recipe,
+  servingCount = recipe?.defaultServings ?? 1,
+  defaultServingCount = recipe?.defaultServings ?? 1
+): string {
+  if (!recipe) {
+    return step.replace(RECIPE_METHOD_MARKUP_PATTERN, getMethodTokenFallbackText);
+  }
   return inspectMethodStepText(step, recipe, servingCount, defaultServingCount).text;
 }
