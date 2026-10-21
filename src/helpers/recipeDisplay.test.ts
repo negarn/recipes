@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
-import { renderMethodStepText } from './recipeDisplay';
-import type { Recipe } from '../types/recipe';
+import { createIngredientAmountFromText } from './customRecipes';
+import { formatIngredientAmount, renderMethodStepText } from './recipeDisplay';
+import type { Ingredient, Recipe } from '../types/recipe';
 
 const baseRecipe: Recipe = {
   defaultServings: 2,
@@ -158,6 +159,52 @@ const staleIngredientIdRecipe: Recipe = {
     }
   ]
 };
+
+describe('formatIngredientAmount', () => {
+  const milk = {
+    id: 'whole-milk',
+    name: 'Whole milk',
+    amount: {
+      type: 'scalable', quantity: 75, unit: { singular: 'ml', separator: 'none' }, note: '5 tbsp'
+    }
+  } satisfies Ingredient;
+
+  it.each([
+    [1, '37.5ml (2.5 tbsp)'],
+    [2, '75ml (5 tbsp)'],
+    [3, '112.5ml (7.5 tbsp)'],
+    [4, '150ml (10 tbsp)']
+  ])('scales both measurements in an existing recipe for %s servings', (servings, expected) => {
+    expect(formatIngredientAmount(milk, servings, 2)).toBe(expected);
+    expect(formatIngredientAmount(milk, 2, 2)).toBe('75ml (5 tbsp)');
+  });
+
+  it.each([
+    ['125ml (1/2 cup)', '250ml (1 cup)'],
+    ['22.5ml (1 1/2 tbsp)', '45ml (3 tbsp)'],
+    ['5 tbsp (75ml)', '10 tbsp (150ml)']
+  ])('scales alternate measurements parsed from %s', (amountText, expected) => {
+    const ingredient = { ...milk, amount: createIngredientAmountFromText(amountText) };
+    expect(formatIngredientAmount(ingredient, 4, 2)).toBe(expected);
+  });
+
+  it.each(['chilled', '2% fat', '400g each', '2 x 200g cartons', '1/0 tbsp', '5 minutes'])(
+    'preserves a note that is not an alternate measurement: %s', (note) => {
+      const ingredient = { ...milk, amount: { ...milk.amount, note } };
+      expect(formatIngredientAmount(ingredient, 4, 2)).toBe(`150ml (${note})`);
+    }
+  );
+
+  it('preserves the package size when scaling container counts', () => {
+    const ingredient = { ...milk, amount: createIngredientAmountFromText('2 cans (400g)') };
+    expect(formatIngredientAmount(ingredient, 4, 2)).toBe('4 cans (400g)');
+  });
+
+  it('preserves explicitly fixed amounts', () => {
+    const ingredient: Ingredient = { ...milk, amount: { type: 'fixed', text: '75ml (5 tbsp)' } };
+    expect(formatIngredientAmount(ingredient, 4, 2)).toBe('75ml (5 tbsp)');
+  });
+});
 
 describe('renderMethodStepText', () => {
   it('resolves stale ingredient ids through their human-readable labels', () => {

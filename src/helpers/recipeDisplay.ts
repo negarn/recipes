@@ -1,4 +1,5 @@
 import type { Ingredient, IngredientUnit, Recipe } from '../types/recipe';
+import { createIngredientAmountFromText } from './customRecipes';
 import {
   expandIngredientAliasCandidates,
   getIngredientAliasCandidates,
@@ -26,6 +27,7 @@ const LITERAL_MEASUREMENT_PATTERN = new RegExp(
   `\\b(${LITERAL_QUANTITY_PATTERN})\\s*(kg|kilograms?|g|grams?|ml|l|tbsp|tablespoons?|tsp|teaspoons?|cups?|cloves?|${LITERAL_CONTAINER_UNIT_PATTERN})\\b(?!\\s*${LITERAL_CONTAINER_PATTERN}\\b)`,
   'gi'
 );
+const ALTERNATE_MEASUREMENT_UNITS = new Set(['g', 'kg', 'ml', 'l', 'tsp', 'tbsp', 'cup', 'lb', 'oz']);
 
 function escapeRegExp(value: string) {
   return value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
@@ -108,6 +110,30 @@ function formatScaledAmount(
   return formatQuantityWithUnit(scaledQuantity, unit, { hideCountUnit });
 }
 
+function formatScaledAmountNote(
+  amount: Extract<Ingredient['amount'], { type: 'scalable' }>,
+  servingCount: number,
+  defaultServings: number
+): string | undefined {
+  const { note, unit } = amount;
+  if (
+    !note || servingCount === defaultServings ||
+    !ALTERNATE_MEASUREMENT_UNITS.has(unit?.singular.toLowerCase() ?? '')
+  ) {
+    return note;
+  }
+
+  const alternateAmount = createIngredientAmountFromText(note);
+  if (
+    alternateAmount.type !== 'scalable' || alternateAmount.note ||
+    !ALTERNATE_MEASUREMENT_UNITS.has(alternateAmount.unit?.singular ?? '')
+  ) {
+    return note;
+  }
+
+  return formatScaledAmount(alternateAmount.quantity, alternateAmount.unit, servingCount, defaultServings);
+}
+
 export function formatIngredientAmount(
   ingredient: Ingredient,
   servingCount: number,
@@ -123,10 +149,9 @@ export function formatIngredientAmount(
     servingCount,
     defaultServings
   );
+  const note = formatScaledAmountNote(ingredient.amount, servingCount, defaultServings);
 
-  return ingredient.amount.note
-    ? `${amountLabel} (${ingredient.amount.note})`
-    : amountLabel;
+  return note ? `${amountLabel} (${note})` : amountLabel;
 }
 
 function formatInlineIngredientAmount(
