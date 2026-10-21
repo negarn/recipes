@@ -294,6 +294,7 @@ type IngredientUse = {
   quantity: number;
   preparation: boolean;
   partial: boolean;
+  remaining: boolean;
   issue: Omit<RecipeScalingIssue, 'code' | 'severity' | 'message'>;
 };
 type SourceRange = Pick<RecipeScalingIssue, 'start' | 'end'>;
@@ -442,6 +443,8 @@ function getAmountMismatches(recipe: Recipe, aliases: IngredientAlias[]): Recipe
           quantity: measured.quantity,
           preparation: isPreparationAmount(rendered.text, candidate.start),
           partial: measured.family === 'count' && candidate.quantityLabel.includes('/'),
+          remaining: /\bremaining\s*$/i.test(rendered.text.slice(0, candidate.start)) ||
+            /\bremaining\b/i.test(rendered.text.slice(candidate.start, candidate.end)),
           issue: {
             sectionId: section.id, sectionTitle: section.title, stepIndex,
             ...range, excerpt: step.slice(range.start, range.end),
@@ -468,17 +471,27 @@ function getAmountMismatches(recipe: Recipe, aliases: IngredientAlias[]): Recipe
     const excessiveUse = uses.find((use) => use.quantity > listed.quantity + tolerance);
     const preparationUses = uses.filter((use) => use.preparation);
     const singlePreparation = preparationUses.length === 1 ? preparationUses[0] : undefined;
-    // Later portions and garnishes do not make an explicit preparation amount incomplete.
-    const preparationMismatch = singlePreparation && !singlePreparation.partial &&
+    const consumptionUses = uses.filter((use) => !use.preparation);
+    const consumedQuantity = consumptionUses.reduce((sum, use) => sum + use.quantity, 0);
+    const combinedMatchesList = singlePreparation !== undefined &&
+      Math.abs(singlePreparation.quantity + consumedQuantity - listed.quantity) <= tolerance;
+    // A smaller prepared portion can be separate from a quantified remainder.
+    const preparationIsSplit = Boolean(singlePreparation && !singlePreparation.partial &&
+      singlePreparation.quantity < listed.quantity - tolerance &&
+      (combinedMatchesList || consumptionUses.some((use) => use.remaining)));
+    // If cooking repeats the prepared amount before using the remainder, count it only once.
+    const includePreparation = preparationIsSplit &&
+      (combinedMatchesList || consumptionUses.every((use) => use.remaining));
+    // An unquantified portion or garnish does not explain a mismatched preparation amount.
+    const preparationMismatch = singlePreparation && !singlePreparation.partial && !preparationIsSplit &&
       !incompletePreparationIngredients.has(ingredient.id) &&
       Math.abs(singlePreparation.quantity - listed.quantity) > tolerance
       ? singlePreparation
       : undefined;
-    const consumptionUses = uses.filter((use) => !use.preparation);
-    const comparableUses = consumptionUses.length ? consumptionUses : uses;
+    const comparableUses = consumptionUses.length && !includePreparation ? consumptionUses : uses;
     const total = comparableUses.reduce((sum, use) => sum + use.quantity, 0);
     const difference = total - listed.quantity;
-    const canCheckTotal = difference > tolerance || (
+    const canCheckTotal = difference > tolerance || includePreparation || (
       !incompleteIngredients.has(ingredient.id) && !comparableUses.some((use) => use.partial)
     );
     if (!excessiveUse && !preparationMismatch && (!canCheckTotal || Math.abs(difference) <= tolerance)) {

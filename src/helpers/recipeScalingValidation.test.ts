@@ -270,6 +270,56 @@ describe('ingredient amount consistency', () => {
     expect(checkRecipeScaling(fixture).issues).toEqual([]);
   });
 
+  function dillRecipe(prepAmount = '5', garnishAmount = '5'): Recipe {
+    const fixture = recipe('', [ingredient('Fresh dill', 10, 'g', 'fresh-dill')]);
+    fixture.sections[0].steps = [`Finely chop ${prepAmount}g of fresh dill. Zest 1 lemon.`];
+    fixture.sections[1].steps = [
+      'Stir the dill, lemon zest and juice from 1/2 lemon through the quinoa. Taste and adjust the seasoning.',
+      `Scatter over the remaining ${garnishAmount}g of fresh dill fronds, then cut the remaining lemon half into wedges and serve alongside.`
+    ];
+    return fixture;
+  }
+
+  it('accepts 5g of dill prepared for the quinoa plus a separate remaining 5g garnish', () => {
+    expect(checkRecipeScaling(dillRecipe()).issues).toEqual([]);
+  });
+
+  it('accepts prep and cooking amounts that account for the full ingredient without remainder wording', () => {
+    const fixture = dillRecipe();
+    fixture.sections[1].steps = ['Scatter over 5g of fresh dill fronds.'];
+    expect(checkRecipeScaling(fixture).issues).toEqual([]);
+  });
+
+  it('does not count a prepared portion twice when cooking repeats its amount before the remainder', () => {
+    const fixture = dillRecipe();
+    fixture.sections[1].steps[0] = 'Stir 5g of fresh dill through the quinoa.';
+    expect(checkRecipeScaling(fixture).issues).toEqual([]);
+  });
+
+  it.each([
+    ['5', '4', '9'], ['5', '6', '11'], ['4', '5', '9'], ['6', '5', '11']
+  ])('checks the total of %sg prepared plus a remaining %sg garnish', (prep, garnish, total) => {
+    const check = checkRecipeScaling(dillRecipe(prep, garnish));
+    expect(check.issues).toHaveLength(1);
+    expect(check.issues[0]).toMatchObject({
+      code: 'amount-mismatch', sectionId: 'prep', stepIndex: 0, excerpt: `${prep}g of fresh dill`,
+      message: `The prep and cook amounts total ${total} g of Fresh dill, but the ingredient list has 10 g.`
+    });
+  });
+
+  it('includes linked prep amounts in a split total and preserves their edit positions', () => {
+    const fixture = dillRecipe('5', '6');
+    fixture.sections[0].steps[0] = 'Finely chop {{amount|5|g}} of fresh dill.';
+    const check = checkRecipeScaling(fixture);
+    expect(check.issues).toHaveLength(1);
+    expect(check.issues[0]).toMatchObject({
+      code: 'amount-mismatch', excerpt: '{{amount|5|g}} of fresh dill',
+      message: 'The prep and cook amounts total 11 g of Fresh dill, but the ingredient list has 10 g.'
+    });
+    const issue = check.issues[0];
+    expect(fixture.sections[0].steps[0].slice(issue.start, issue.end)).toBe(issue.excerpt);
+  });
+
   it('leaves split prep amounts alone rather than comparing each part to the ingredient total', () => {
     const fixture = parsleyRecipe();
     fixture.sections[0].steps = ['Chop 3g of parsley for the garnish.', 'Chop 27g of parsley for the soup.'];
