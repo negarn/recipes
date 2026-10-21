@@ -226,7 +226,11 @@ export function getIngredientAliasCandidates(ingredientName: string) {
   function addIngredientAliasCandidate(candidate: string) {
     const normalizedCandidate = normalizeIngredientWhitespace(candidate).toLowerCase();
 
-    if (!normalizedCandidate || ingredientAliasCandidates.includes(normalizedCandidate)) {
+    if (
+      !normalizedCandidate ||
+      ingredientAliasCandidates.includes(normalizedCandidate) ||
+      normalizedCandidate.split(' ').every((word) => ingredientAliasPrefixWords.has(word))
+    ) {
       return;
     }
 

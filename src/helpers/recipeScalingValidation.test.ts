@@ -179,6 +179,46 @@ describe('fixed amounts and issue edits', () => {
 });
 
 describe('ingredient amount consistency', () => {
+  function spiceMixRecipe(): Recipe {
+    const fixture = recipe('Add the reserved 1/3 of the spice blend to the pan.', [
+      ingredient('Ground cloves', 0.25, 'tsp'),
+      ingredient('Cumin', 0.5, 'tsp'),
+      ingredient('Coriander', 0.5, 'tsp'),
+      ingredient('Ground cinnamon', 0.25, 'tsp'),
+      ingredient('Ground allspice', 0.25, 'tsp'),
+      ingredient('Ground black pepper', 0.25, 'tsp'),
+      ingredient('Chilli flakes', 0.5, 'tsp')
+    ]);
+    fixture.sections[0].steps = [
+      'Combine 1/4 tsp of ground cloves, 1/2 tsp of ground cumin, 1/2 tsp of ground coriander, 1/4 tsp of ground cinnamon, 1/4 tsp of ground allspice, 1/4 tsp of ground black pepper and 1/2 tsp of chilli flakes. Mix well, then spoon 1/3 of the spice mix into a small bowl, this is for the spiced butter topping.'
+    ];
+    return fixture;
+  }
+
+  it('keeps ground spices separate when checking a mixed spice list', () => {
+    expect(checkRecipeScaling(spiceMixRecipe()).issues).toEqual([]);
+  });
+
+  it.each([
+    ['1/4 tsp of ground cloves', '1/2 tsp of ground cloves', 'Ground cloves', '1/4 tsp'],
+    ['1/2 tsp of ground cumin', '3/4 tsp of ground cumin', 'Cumin', '1/2 tsp']
+  ])('still reports a real mismatch for %s', (original, replacement, name, listed) => {
+    const fixture = spiceMixRecipe();
+    fixture.sections[0].steps[0] = fixture.sections[0].steps[0].replace(original, replacement);
+    const check = checkRecipeScaling(fixture);
+    expect(check.issues).toHaveLength(1);
+    expect(check.issues[0]).toMatchObject({
+      code: 'amount-mismatch', sectionId: 'prep', stepIndex: 0, excerpt: replacement,
+      message: `This step specifies ${replacement.split(' of ')[0]} of ${name}, but the ingredient list has ${listed}.`
+    });
+  });
+
+  it.each(['Add 1/2 tsp of ground cumin.', 'Add tsp of ground cumin.', 'Add 1/2 tsp of ground.'])(
+    'does not match a preparation word to ground cloves: %s', (step) => {
+      expect(checkRecipeScaling(recipe(step, [ingredient('Ground cloves', 0.25, 'tsp')])).issues).toEqual([]);
+    }
+  );
+
   function parsleyRecipe(prepAmount = '3'): Recipe {
     const fixture = recipe('', [ingredient('Fresh parsley', 30, 'g', 'fresh-parsley')]);
     fixture.sections[0].steps = [`Chop ${prepAmount}g of parsley.`];
