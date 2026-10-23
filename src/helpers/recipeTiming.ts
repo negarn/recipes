@@ -1,14 +1,31 @@
-const DURATION_PATTERN =
-  /\b(\d+(?:\.\d+)?)\s*(?:to|-)\s*(\d+(?:\.\d+)?)\s*(hours?|hrs?|hr|minutes?|mins?|min|seconds?|secs?|sec)\b|\b(\d+(?:\.\d+)?|a|an|one|another)\s*(hours?|hrs?|hr|minutes?|mins?|min|seconds?|secs?|sec)\b/gi;
+const DURATION_NUMBER_WORDS: Record<string, number> = {
+  a: 1, an: 1, another: 1,
+  one: 1, two: 2, three: 3, four: 4, five: 5, six: 6, seven: 7, eight: 8, nine: 9,
+  ten: 10, eleven: 11, twelve: 12, thirteen: 13, fourteen: 14, fifteen: 15,
+  sixteen: 16, seventeen: 17, eighteen: 18, nineteen: 19,
+  twenty: 20, thirty: 30, forty: 40, fifty: 50, sixty: 60, seventy: 70,
+  eighty: 80, ninety: 90
+};
+const COMPOUND_NUMBER_PATTERN =
+  '(?:twenty|thirty|forty|fifty|sixty|seventy|eighty|ninety)[ -](?:one|two|three|four|five|six|seven|eight|nine)';
+const DURATION_QUANTITY_PATTERN =
+  `(?:\\d+(?:\\.\\d+)?|${COMPOUND_NUMBER_PATTERN}|${Object.keys(DURATION_NUMBER_WORDS).join('|')})`;
+const DURATION_PATTERN = new RegExp(
+  `\\b(${DURATION_QUANTITY_PATTERN})(?:\\s*(?:to|[-–—])\\s*(${DURATION_QUANTITY_PATTERN}))?\\s*(hours?|hrs?|minutes?|mins?|seconds?|secs?)\\b`,
+  'gi'
+);
 
-function getDurationQuantity(quantityLabel: string) {
+function getDurationQuantity(quantityLabel: string): number {
   const quantity = Number(quantityLabel);
 
   if (Number.isFinite(quantity)) {
     return quantity;
   }
 
-  return 1;
+  return quantityLabel.toLowerCase().split(/[ -]/).reduce(
+    (total, word) => total + DURATION_NUMBER_WORDS[word],
+    0
+  );
 }
 
 function getDurationUnitSeconds(unitLabel: string) {
@@ -31,10 +48,8 @@ function getDurationValuesInSeconds(value: string) {
   DURATION_PATTERN.lastIndex = 0;
 
   for (const durationMatch of value.matchAll(DURATION_PATTERN)) {
-    const quantity = durationMatch[2]
-      ? Number(durationMatch[2])
-      : getDurationQuantity(durationMatch[4]);
-    const unitLabel = durationMatch[3] ?? durationMatch[5];
+    const quantity = getDurationQuantity(durationMatch[2] ?? durationMatch[1]);
+    const unitLabel = durationMatch[3];
 
     if (!unitLabel || !Number.isFinite(quantity) || quantity <= 0) {
       continue;

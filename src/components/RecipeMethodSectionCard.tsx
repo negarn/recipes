@@ -57,9 +57,7 @@ export function RecipeMethodSectionCard({
               servingCount,
               defaultServingCount
             );
-            const timerDurationMs = isCookSection
-              ? getMethodStepTimerDurationMs(renderedStep)
-              : null;
+            const timerDurationMs = getMethodStepTimerDurationMs(renderedStep);
             const activeTimerEndAt = activeStepTimers[stepId];
             const isTimerActive = typeof activeTimerEndAt === 'number';
 

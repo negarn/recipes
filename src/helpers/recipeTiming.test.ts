@@ -28,6 +28,24 @@ describe('formatCookTimeLabel', () => {
 });
 
 describe('getMethodStepTimerDurationMs', () => {
+  it.each([
+    ['Mix for approximately two minutes.', 120],
+    ['Rest for twenty minutes.', 1200],
+    ['Rest for twenty-five minutes.', 1500],
+    ['Rest for forty five minutes.', 2700],
+    ['Wait THIRTY seconds.', 30],
+    ['Rise for two hours.', 7200],
+    ['Knead for seven to nine minutes.', 540],
+    ['Rest for 20 to thirty minutes.', 1800],
+    ['Knead for 7–9 minutes.', 540],
+    ['Rise for 60–90 minutes.', 5400],
+    ['Rise for approximately 40–60 minutes.', 3600],
+    ['Cook for 1.5 hrs.', 5400],
+    ['Wait 30sec.', 30]
+  ])('recognizes the duration in "%s"', (step, seconds) => {
+    expect(getMethodStepTimerDurationMs(step)).toBe(seconds * 1000);
+  });
+
   it('uses the highest value from minute ranges', () => {
     expect(getMethodStepTimerDurationMs('Stir and cook for 6-8 minutes.')).toBe(
       8 * 60 * 1000
@@ -52,5 +70,8 @@ describe('getMethodStepTimerDurationMs', () => {
 
   it('does not read partial words as one-unit timers', () => {
     expect(getMethodStepTimerDurationMs('Serve with banana minutes.')).toBeNull();
+    expect(getMethodStepTimerDurationMs('Chop walnuts.')).toBeNull();
+    expect(getMethodStepTimerDurationMs('Mix on speed 2.')).toBeNull();
+    expect(getMethodStepTimerDurationMs('Wait for someone minutes.')).toBeNull();
   });
 });
