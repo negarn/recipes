@@ -23,10 +23,7 @@ import {
   type RecipeScalingIssue
 } from '../helpers/recipeScalingValidation';
 import { formatQuantityWithUnit } from '../helpers/quantityFormatting';
-import {
-  formatRecipeNutritionValue,
-  getRecipeNutritionPerServingValues
-} from '../helpers/recipeNutrition';
+import { getRecipeNutritionPerServingValues } from '../helpers/recipeNutrition';
 import { cn, fieldClass, pillButtonClass, textareaClass } from '../helpers/uiClasses';
 import { isValidRecipeRating } from '../helpers/recipePreferenceData';
 import type { Ingredient, Recipe, RecipeNutrition } from '../types/recipe';
@@ -35,16 +32,15 @@ const nutritionFieldDefinitions: Array<{
   key: keyof RecipeNutrition['values'];
   label: string;
   placeholder: string;
-  unit: 'g' | 'kcal';
 }> = [
-  { key: 'calories', label: 'Calories', placeholder: '520', unit: 'kcal' },
-  { key: 'carbs', label: 'Carbs (g)', placeholder: '42', unit: 'g' },
-  { key: 'fat', label: 'Fat (g)', placeholder: '18', unit: 'g' },
-  { key: 'saturates', label: 'Saturated fat (g)', placeholder: '6', unit: 'g' },
-  { key: 'sugars', label: 'Sugars (g)', placeholder: '8', unit: 'g' },
-  { key: 'fibre', label: 'Fibre (g)', placeholder: '5', unit: 'g' },
-  { key: 'protein', label: 'Protein (g)', placeholder: '24', unit: 'g' },
-  { key: 'salt', label: 'Salt (g)', placeholder: '1.1', unit: 'g' }
+  { key: 'calories', label: 'Calories', placeholder: '520' },
+  { key: 'carbs', label: 'Carbs (g)', placeholder: '42' },
+  { key: 'fat', label: 'Fat (g)', placeholder: '18' },
+  { key: 'saturates', label: 'Saturated fat (g)', placeholder: '6' },
+  { key: 'sugars', label: 'Sugars (g)', placeholder: '8' },
+  { key: 'fibre', label: 'Fibre (g)', placeholder: '5' },
+  { key: 'protein', label: 'Protein (g)', placeholder: '24' },
+  { key: 'salt', label: 'Salt (g)', placeholder: '1.1' }
 ];
 
 type RecipeFormNutritionDraft = Record<keyof RecipeNutrition['values'], string>;
@@ -127,9 +123,9 @@ function createRecipeNutritionDraft(recipeNutrition?: RecipeNutrition) {
   }
 
   return Object.fromEntries(
-    nutritionFieldDefinitions.map(({ key, unit }) => {
+    nutritionFieldDefinitions.map(({ key }) => {
       const value = perServingValues[key];
-      return [key, value === undefined ? '' : formatRecipeNutritionValue(value, unit)];
+      return [key, value === undefined ? '' : String(value)];
     })
   ) as RecipeFormNutritionDraft;
 }

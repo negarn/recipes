@@ -80,18 +80,18 @@ describe('createRecipeCreateFormInitialValues', () => {
     expect(initialValues.servings).toBe('2');
   });
 
-  it('prefills nutrition using the per-serving values shown on the recipe page', () => {
+  it('prefills nutrition with per-serving values without rounding away saved precision', () => {
     const initialValues = createRecipeCreateFormInitialValues(recipeWithNutrition);
 
     expect(initialValues.nutritionDraft).toEqual({
-      calories: '572',
-      carbs: '37.5',
-      fat: '36.8',
-      fibre: '3.1',
-      protein: '26.2',
-      salt: '0.6',
+      calories: '572.495',
+      carbs: '37.465',
+      fat: '36.75',
+      fibre: '3.125',
+      protein: '26.17',
+      salt: '0.625',
       saturates: '17.7',
-      sugars: '7.4'
+      sugars: '7.385'
     });
   });
 });
@@ -116,10 +116,18 @@ describe('optional nutrition fields', () => {
       expect(getRecipeNutritionPerServingValues(saved?.nutrition)).toEqual({ [key]: 12.5 });
       expect(createRecipeCreateFormInitialValues(saved!).nutritionDraft).toEqual({
         ...emptyDraft,
-        [key]: key === 'calories' ? '13' : '12.5'
+        [key]: '12.5'
       });
     }
   );
+
+  it.each([0, 520, 1200, 1234.5])('preserves %s calories through opening and saving the editor', (calories) => {
+    const nutrition = { sourceServings: 1, values: { calories, protein: 24.25 } };
+    const initialValues = createRecipeCreateFormInitialValues({ ...recipeWithNutrition, nutrition });
+
+    expect(initialValues.nutritionDraft.calories).toBe(String(calories));
+    expect(parseNutritionDraft(initialValues.nutritionDraft)).toEqual({ error: null, nutrition });
+  });
 
   it('keeps zero values and leaves blank fields absent', () => {
     expect(parseNutritionDraft({ ...emptyDraft, calories: '520', fat: '0', protein: ' ' })).toEqual({
