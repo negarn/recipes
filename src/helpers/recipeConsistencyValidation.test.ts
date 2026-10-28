@@ -116,11 +116,18 @@ describe('checkRecipeConsistency', () => {
     expect(checkRecipeConsistency(draft, [reference]).issues).toEqual([]);
   });
 
-  it('matches the casing of an existing ingredient name from another recipe', () => {
-    const reference = { ...recipe(['Baby spinach']), id: 'reference' };
-    expect(checkRecipeConsistency(recipe(['Baby Spinach']), [reference]).issues)
-      .toMatchObject([{ code: 'name-convention', replacement: 'Baby spinach' }]);
-  });
+  it.each(['baby spinach', 'Baby Spinach', 'BABY SPINACH'])(
+    'ignores catalog capitalisation differences for %s', (name) => {
+      const reference = { ...recipe(['Baby spinach']), id: 'reference' };
+      expect(checkRecipeConsistency(recipe([name]), [reference]).issues).toEqual([]);
+    }
+  );
+
+  it.each(['lemon', 'RED ONION', 'Heavy Cream', 'Greek Yogurt'])(
+    'ignores capitalisation differences from built-in names for %s', (name) => {
+      expect(checkRecipeConsistency(recipe([name])).issues).toEqual([]);
+    }
+  );
 
   it('does not treat the saved version of the edited recipe as a spelling reference', () => {
     const draft = recipe(['Galangl']);

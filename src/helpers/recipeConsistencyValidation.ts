@@ -207,18 +207,10 @@ export function checkRecipeConsistency(recipe: Recipe, catalog: Recipe[] = []): 
   const ingredientTargets = new Set([...commonIngredientWords, ...catalogWords]);
   const knownIngredientWords = new Set([...ingredientTargets, ...cookingWords]);
   const seenNames = new Map<string, number>();
-  const catalogNamesByKey = new Map<string, string>();
-  for (const name of catalogNames) {
-    const normalizedName = normalizeIngredientWhitespace(name);
-    const key = normalizedName.toLowerCase();
-    if (!catalogNamesByKey.has(key)) {
-      catalogNamesByKey.set(key, normalizedName);
-    }
-  }
 
   recipe.ingredients.forEach((ingredient, lineIndex) => {
     const nameKey = normalizeIngredientWhitespace(ingredient.name).toLowerCase();
-    const canonicalName = getConsistentIngredientName(ingredient.name) ?? catalogNamesByKey.get(nameKey);
+    const canonicalName = getConsistentIngredientName(ingredient.name);
     const duplicateName = normalizeIngredientWhitespace(
       getCanonicalIngredientName(ingredient.name) ?? ingredient.name
     ).toLowerCase();
@@ -228,7 +220,7 @@ export function checkRecipeConsistency(recipe: Recipe, catalog: Recipe[] = []): 
     const wordIssues = checkWords(ingredient.name, location, ingredientTargets, knownIngredientWords, spellingConventions);
     const nameSuggestion = wordIssues.some((issue) => issue.code === 'name-convention')
       ? undefined : canonicalName;
-    if (nameSuggestion && nameSuggestion !== ingredient.name) {
+    if (nameSuggestion && nameSuggestion.toLowerCase() !== nameKey) {
       issues.push({
         ...location, code: 'name-convention', start: 0, end: ingredient.name.length,
         excerpt: ingredient.name, replacement: nameSuggestion,

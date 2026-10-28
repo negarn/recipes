@@ -5,7 +5,7 @@ import { InlineMessage } from './InlineMessage';
 import { RecipeRatingSelector } from './RecipeRatingSelector';
 import { RecipeConsistencyFeedback } from './RecipeConsistencyFeedback';
 import { RecipeScalingFeedback } from './RecipeScalingFeedback';
-import { createRecipeFromPayload } from '../helpers/recipeCreation';
+import { createRecipeDraftFromPayload } from '../helpers/recipeCreation';
 import {
   applyRecipeMethodDraftEdit,
   createRecipeMethodDraft,
@@ -335,7 +335,7 @@ export function RecipeCreateForm({
     if (!Number.isSafeInteger(servingCount) || servingCount <= 0) {
       return { error: 'Enter a serving size greater than 0 before checking the recipe.', recipe: null };
     }
-    const recipe = createRecipeFromPayload(
+    const recipe = createRecipeDraftFromPayload(
       {
         ingredients: parsedIngredients.ingredients,
         prepSteps: parseTextLines(prepSteps),
@@ -549,7 +549,7 @@ export function RecipeCreateForm({
       title: normalizedTitle,
       totalTime: normalizedTotalTime
     };
-    const recipe = createRecipeFromPayload(payload, originalRecipe?.id ?? 'draft', originalRecipe);
+    const recipe = createRecipeDraftFromPayload(payload, originalRecipe?.id ?? 'draft', originalRecipe);
     const check = checkRecipeScaling(recipe);
     const consistency = checkRecipeConsistency(recipe, recipes);
     setHasCheckedScaling(true);

@@ -31,6 +31,25 @@ export function createRecipeFromPayload(
   payload: RecipeCreatePayload,
   recipeId: string,
   previousRecipe?: Recipe
+): Recipe {
+  const recipe = createRecipeDraftFromPayload(payload, recipeId, previousRecipe);
+  return {
+    ...recipe,
+    ingredients: recipe.ingredients.map((ingredient) => ({
+      ...ingredient,
+      name: ingredient.name.toLowerCase().replace(
+        /\p{L}[\p{L}\p{M}]*(?:['’][\p{L}\p{M}]+)*/gu,
+        (word) => word.charAt(0).toUpperCase() + word.slice(1)
+      )
+    }))
+  };
+}
+
+// Keep draft spelling and offsets intact for consistency suggestions and edits.
+export function createRecipeDraftFromPayload(
+  payload: RecipeCreatePayload,
+  recipeId: string,
+  previousRecipe?: Recipe
 ) {
   const ingredientIds = new Set<string>();
   const reusableIngredientIds = getReusableIngredientIds(previousRecipe);
