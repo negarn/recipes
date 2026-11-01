@@ -200,6 +200,22 @@ describe('formatIngredientAmount', () => {
     expect(formatIngredientAmount(ingredient, 4, 2)).toBe('4 cans (400g)');
   });
 
+  it.each([
+    ['Onion', '2x (150g)', 1, '1x (75g)'],
+    ['Onion', '2x (150g)', 2, '2x (150g)'],
+    ['Onion', '2x (150g)', 4, '4x (300g)'],
+    ['Carrot', '4x (180g)', 1, '2x (90g)'],
+    ['Carrot', '4x (180g)', 4, '8x (360g)']
+  ])('scales the count and total weight of %s from %s for %s servings', (name, amountText, servings, expected) => {
+    const ingredient = { id: name.toLowerCase(), name, amount: createIngredientAmountFromText(amountText) };
+    expect(formatIngredientAmount(ingredient, servings, 2)).toBe(expected);
+  });
+
+  it('preserves explicitly per-item weights when scaling produce counts', () => {
+    const ingredient = { id: 'onion', name: 'Onion', amount: createIngredientAmountFromText('2x (150g each)') };
+    expect(formatIngredientAmount(ingredient, 4, 2)).toBe('4x (150g each)');
+  });
+
   it('preserves explicitly fixed amounts', () => {
     const ingredient: Ingredient = { ...milk, amount: { type: 'fixed', text: '75ml (5 tbsp)' } };
     expect(formatIngredientAmount(ingredient, 4, 2)).toBe('75ml (5 tbsp)');
@@ -207,6 +223,24 @@ describe('formatIngredientAmount', () => {
 });
 
 describe('renderMethodStepText', () => {
+  it.each(['litre', 'litres', 'liter', 'liters'])(
+    'scales water measured in %s in cooking steps', (unit) => {
+      const step = `Add 1.7 ${unit} of water and simmer for 20–25 minutes.`;
+      const plural = unit.startsWith('litre') ? 'litres' : 'liters';
+      expect(renderMethodStepText(step, baseRecipe, 2)).toBe(step);
+      expect(renderMethodStepText(step, baseRecipe, 4)).toBe(`Add 3.4 ${plural} of water and simmer for 20–25 minutes.`);
+      expect(renderMethodStepText(step, baseRecipe, 1)).toBe(`Add 0.85 ${plural} of water and simmer for 20–25 minutes.`);
+    }
+  );
+
+  it('uses the singular volume unit when the scaled quantity is one', () => {
+    expect(renderMethodStepText('Add 2 litres of water.', baseRecipe, 1)).toBe('Add 1 litre of water.');
+  });
+
+  it('keeps explicitly fixed water amounts unchanged', () => {
+    expect(renderMethodStepText('Add {{fixed|1.7 litres}} of water.', baseRecipe, 4)).toBe('Add 1.7 litres of water.');
+  });
+
   it('resolves stale ingredient ids through their human-readable labels', () => {
     const step =
       'Finely chop {{ingredient|green-onions|green onion|green onions}}, saving 1/4 for garnish, and {{ingredient|green-chillies|green chilli|green chillies}}.';

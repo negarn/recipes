@@ -24,7 +24,7 @@ const LITERAL_COUNT_DESCRIPTOR_SEQUENCE_PATTERN =
 const LITERAL_CONTAINER_UNIT_PATTERN =
   '(?:can(?:s)?|tin(?:s)?|pouch(?:es)?|packet(?:s)?|jar(?:s)?)';
 const LITERAL_MEASUREMENT_PATTERN = new RegExp(
-  `\\b(${LITERAL_QUANTITY_PATTERN})\\s*(kg|kilograms?|g|grams?|ml|l|tbsp|tablespoons?|tsp|teaspoons?|cups?|cloves?|${LITERAL_CONTAINER_UNIT_PATTERN})\\b(?!\\s*${LITERAL_CONTAINER_PATTERN}\\b)`,
+  `\\b(${LITERAL_QUANTITY_PATTERN})\\s*(kg|kilograms?|g|grams?|ml|l|litres?|liters?|tbsp|tablespoons?|tsp|teaspoons?|cups?|cloves?|${LITERAL_CONTAINER_UNIT_PATTERN})\\b(?!\\s*${LITERAL_CONTAINER_PATTERN}\\b)`,
   'gi'
 );
 const ALTERNATE_MEASUREMENT_UNITS = new Set(['g', 'kg', 'ml', 'l', 'tsp', 'tbsp', 'cup', 'lb', 'oz']);
@@ -116,9 +116,10 @@ function formatScaledAmountNote(
   defaultServings: number
 ): string | undefined {
   const { note, unit } = amount;
+  const primaryUnit = unit?.singular.toLowerCase() ?? 'x';
   if (
     !note || servingCount === defaultServings ||
-    !ALTERNATE_MEASUREMENT_UNITS.has(unit?.singular.toLowerCase() ?? '')
+    (primaryUnit !== 'x' && !ALTERNATE_MEASUREMENT_UNITS.has(primaryUnit))
   ) {
     return note;
   }
@@ -361,6 +362,12 @@ function getLiteralMeasurementUnitDefinition(unitLabel: string): IngredientUnit 
       return { singular: 'g', separator: 'none' };
     case 'l':
       return { singular: 'l', separator: 'none' };
+    case 'litre':
+    case 'litres':
+      return { singular: 'litre', plural: 'litres' };
+    case 'liter':
+    case 'liters':
+      return { singular: 'liter', plural: 'liters' };
     case 'ml':
       return { singular: 'ml', separator: 'none' };
     case 'tbsp':
