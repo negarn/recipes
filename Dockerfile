@@ -1,4 +1,10 @@
-FROM node:20-bookworm-slim
+FROM node:24-trixie-slim AS os
+
+RUN apt-get -o APT::Update::Error-Mode=any update \
+    && DEBIAN_FRONTEND=noninteractive apt-get upgrade -y --with-new-pkgs --no-install-recommends \
+    && rm -rf /var/lib/apt/lists/*
+
+FROM os
 
 WORKDIR /app
 

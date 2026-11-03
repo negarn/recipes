@@ -71,6 +71,8 @@ Open `http://localhost:5173`.
 ## Docker Deploy
 
 Every push to `main` builds a Docker image and publishes it to Docker Hub.
+To publish a security rebuild of the same commit, open **Actions → Build and push Docker image → Run workflow** and select `main`.
+Each build pulls the current Node 24 LTS image for Debian 13 and checks for Debian package upgrades. Apply kernel fixes on the Docker host separately.
 
 The workflow expects these GitHub secrets:
 
@@ -109,8 +111,8 @@ volumes:
 To refresh a running deployment, pull the new image and restart the service:
 
 ```bash
-docker compose pull
-docker compose up -d
+docker compose pull recipes
+docker compose up -d recipes
 ```
 
 The container already points `RECIPE_PREFERENCES_DATA_DIR` at `/data/recipes`, so mounting that path keeps recipe data between updates and container restarts.
