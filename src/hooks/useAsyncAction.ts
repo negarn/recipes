@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
+import { ApiRequestError } from '../helpers/api';
 
 export function useAsyncAction() {
   const [error, setError] = useState<string | null>(null);
@@ -68,7 +69,7 @@ export function useAsyncAction() {
       return true;
     } catch (error) {
       if (isMountedRef.current && resetVersionRef.current === runResetVersion) {
-        setError(errorMessage);
+        setError(error instanceof ApiRequestError ? error.message : errorMessage);
         onError?.(error);
       }
 

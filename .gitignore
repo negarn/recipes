@@ -1,8 +1,12 @@
 .DS_Store
-.env.local
+.env*
+.dev.vars*
+.wrangler/
+.playwright-cli/
+*.sql.tmp
 dist
 node_modules
 coverage
 .vite
 test-results/
-.recipes-demo/
+storybook-static/

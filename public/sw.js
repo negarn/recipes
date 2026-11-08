@@ -1,149 +1,59 @@
-const CACHE_NAME = 'recipes-offline-v3';
-const APP_SHELL_URLS = ['/', '/index.html', '/manifest.webmanifest', '/favicon.svg?v=7'];
+const CACHE_NAME = 'recipes-shell-v1';
 
-function isSameOriginUrl(url) {
-  return url.origin === self.location.origin;
-}
-
+// Only the public app shell is cached here. Private data is cached by the app,
+// and /api/session, login, logout, and backups always go to the network.
 async function cacheResponse(request, response) {
-  if (!response || !response.ok || response.type === 'opaque') {
-    return response;
-  }
-
-  const responseUrl = response.url ? new URL(response.url) : null;
-
-  if (responseUrl?.origin === self.location.origin && responseUrl.pathname.startsWith('/auth/')) {
-    return response;
-  }
-
-  try {
+  if (response.ok && !response.redirected && response.type !== 'opaque') {
     const cache = await caches.open(CACHE_NAME);
     await cache.put(request, response.clone());
-  } catch {
-    return response;
   }
-
   return response;
 }
 
-function getHtmlAssetUrls(html) {
-  return Array.from(html.matchAll(/\b(?:src|href)="([^"]+)"/g))
-    .map((match) => match[1])
-    .filter((url) => url.startsWith('/assets/'));
-}
-
-async function fetchCacheableResponse(url) {
-  const response = await fetch(url, {
-    cache: 'reload',
-    credentials: 'same-origin'
-  });
-
-  if (!response || !response.ok || response.redirected || response.type === 'opaque') {
-    return null;
-  }
-
-  const responseUrl = response.url ? new URL(response.url) : null;
-
-  if (responseUrl?.origin === self.location.origin && responseUrl.pathname.startsWith('/auth/')) {
-    return null;
-  }
-
-  return response;
-}
-
-async function cacheUrl(cache, url) {
+async function cacheShell() {
   try {
-    const response = await fetchCacheableResponse(url);
-
-    if (response) {
-      await cache.put(url, response.clone());
-    }
-
-    return response;
-  } catch {
-    return null;
-  }
-}
-
-async function cacheAppShell() {
-  const cache = await caches.open(CACHE_NAME);
-  const indexResponse = await cacheUrl(cache, '/index.html');
-  const indexHtml = indexResponse ? await indexResponse.clone().text() : '';
-  const assetUrls = getHtmlAssetUrls(indexHtml);
-
-  await Promise.all(
-    [...APP_SHELL_URLS, ...assetUrls].map((url) => cacheUrl(cache, url))
-  );
-}
-
-async function fetchAndCache(request) {
-  return cacheResponse(request, await fetch(request));
-}
-
-async function respondWithCachedFallback(request, fallbackRequest = request) {
-  try {
-    return await fetchAndCache(request);
-  } catch (error) {
-    const cachedResponse = await caches.match(fallbackRequest);
-
-    if (cachedResponse) {
-      return cachedResponse;
-    }
-
-    throw error;
-  }
+    const response = await fetch('/', { cache: 'reload' });
+    if (!response.ok) return;
+    const html = await response.clone().text();
+    await cacheResponse('/index.html', response);
+    const assets = [...html.matchAll(/\b(?:src|href)="([^"]+)"/g)]
+      .map((match) => match[1]).filter((url) => url.startsWith('/assets/'));
+    await Promise.all(['/manifest.webmanifest', '/favicon.svg', ...assets].map(async (url) => {
+      try { await cacheResponse(url, await fetch(url)); } catch { /* Retry on next visit. */ }
+    }));
+  } catch { /* Installation must also work with an interrupted connection. */ }
 }
 
 self.addEventListener('install', (event) => {
-  event.waitUntil(cacheAppShell());
+  event.waitUntil(cacheShell());
   self.skipWaiting();
 });
 
 self.addEventListener('activate', (event) => {
-  event.waitUntil(
-    caches
-      .keys()
-      .then((cacheNames) =>
-        Promise.all(
-          cacheNames
-            .filter((cacheName) => cacheName !== CACHE_NAME)
-            .map((cacheName) => caches.delete(cacheName))
-        )
-      )
-  );
-  self.clients.claim();
+  event.waitUntil((async () => {
+    for (const name of await caches.keys()) {
+      if (name.startsWith('recipes-') && name !== CACHE_NAME) await caches.delete(name);
+    }
+    await self.clients.claim();
+  })());
 });
 
 self.addEventListener('fetch', (event) => {
   const { request } = event;
-
-  if (request.method !== 'GET') {
-    return;
-  }
-
   const url = new URL(request.url);
+  if (request.method !== 'GET' || url.origin !== self.location.origin ||
+      url.pathname === '/api' || url.pathname.startsWith('/api/')) return;
 
-  if (
-    !isSameOriginUrl(url) ||
-    url.pathname.startsWith('/auth/') ||
-    url.pathname.startsWith('/api/auth/')
-  ) {
-    return;
-  }
-
-  if (url.pathname.startsWith('/api/')) {
-    event.respondWith(respondWithCachedFallback(request));
-    return;
-  }
-
-  if (request.mode === 'navigate') {
-    event.respondWith(respondWithCachedFallback(request, '/index.html'));
-    return;
-  }
-
-  event.respondWith(
-    caches.match(request).then((cachedResponse) => {
-      return cachedResponse ?? fetchAndCache(request);
-    })
-  );
+  event.respondWith((async () => {
+    if (request.mode === 'navigate') {
+      try { return await cacheResponse('/index.html', await fetch(request)); }
+      catch (error) {
+        const cached = await caches.match('/index.html');
+        if (cached) return cached;
+        throw error;
+      }
+    }
+    const cached = await caches.match(request);
+    return cached ?? cacheResponse(request, await fetch(request));
+  })());
 });

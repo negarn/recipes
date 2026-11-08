@@ -1,5 +1,5 @@
 import { EmptyStateMessage } from '../components/PageStatusMessage';
-import { CloudSyncSection } from '../components/CloudSyncSection';
+import { DataSettingsSection } from '../components/DataSettingsSection';
 import { SettingsPageSkeleton } from '../components/SettingsPageSkeleton';
 import { ServingSizeControl } from '../components/ServingSizeControl';
 import { TabbedPageHeader } from '../components/TabbedPageHeader';
@@ -149,7 +149,7 @@ export function SettingsPage() {
               </div>
             </div>
 
-            <CloudSyncSection />
+            <DataSettingsSection />
           </div>
         </section>
       )}

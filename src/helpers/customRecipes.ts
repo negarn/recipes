@@ -68,8 +68,7 @@ function normalizeIngredientUnit(value: unknown): IngredientUnit | undefined {
 }
 
 function normalizeStoredIngredientName(value: string) {
-  // Keep persisted ingredient labels aligned with what the user entered so
-  // local storage and cloud sync snapshots stay identical.
+  // Preserve the ingredient labels the user entered.
   return normalizeSpacing(value);
 }
 

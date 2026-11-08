@@ -1,3 +1,4 @@
+import { apiRequest, ApiRequestError } from './api';
 import { normalizeRecipeNoteText } from './recipePreferenceData';
 import { normalizeRecipes } from './customRecipes';
 import {
@@ -15,7 +16,6 @@ import {
   normalizeMealPlan
 } from './mealPlanData';
 import {
-  getRecipeAppPreferenceDefinition,
   getRecipeAppPreferenceStore,
   recipeAppPreferenceKeys,
   type RecipeAppPreferenceKey,
@@ -32,6 +32,10 @@ import type {
 } from '../types/app';
 import type { Recipe } from '../types/recipe';
 
+let preferenceRevision: number | null = null;
+let catalogVersions: Record<string, number> = {};
+let mutationQueue: Promise<unknown> = Promise.resolve();
+
 const SAVE_MEAL_PLAN_ERROR_MESSAGE = 'Could not save meal plan.';
 const UPDATE_MEAL_PLAN_ERROR_MESSAGE = 'Could not update meal plan.';
 const UPDATE_COOKED_MEAL_HISTORY_ERROR_MESSAGE = 'Could not update cooked meal history.';
@@ -42,7 +46,7 @@ function createEmptyRecipeAppPreferenceSnapshot() {
   return Object.fromEntries(
     recipeAppPreferenceKeys.map((key) => [
       key,
-      getRecipeAppPreferenceDefinition(key).store.createEmptyValue()
+      getRecipeAppPreferenceStore(key).createEmptyValue()
     ])
   ) as RecipeAppPreferenceValueMap;
 }
@@ -54,7 +58,7 @@ function normalizeRecipeAppPreferenceSnapshot(value: unknown) {
 
   return Object.fromEntries(
     recipeAppPreferenceKeys.map((key) => {
-      const { store } = getRecipeAppPreferenceDefinition(key);
+      const store = getRecipeAppPreferenceStore(key);
 
       return [
         key,
@@ -96,11 +100,7 @@ function writeCachedRecipeCatalog(recipes: Recipe[]) {
 }
 
 async function requestRecipePreferencePayload({
-  path,
-  cache,
-  errorMessage,
-  body,
-  method = 'GET'
+  path, cache, body, method = 'GET'
 }: {
   path: string;
   cache?: RequestCache;
@@ -108,20 +108,31 @@ async function requestRecipePreferencePayload({
   body?: unknown;
   method?: 'DELETE' | 'GET' | 'PUT';
 }) {
-  const response = await fetch(path, {
-    cache,
-    method,
-    headers: body === undefined ? undefined : { 'Content-Type': 'application/json' },
-    body: body === undefined ? undefined : JSON.stringify(body)
-  });
-
-  if (!response.ok) {
-    throw new Error(errorMessage);
+  async function execute() {
+    const headers: Record<string, string> = {};
+    if (body !== undefined) headers['Content-Type'] = 'application/json';
+    if (method !== 'GET') {
+      const recipe = (body as { recipe?: Recipe } | undefined)?.recipe;
+      const revision = path === recipePreferenceApiPaths.recipeCatalog && recipe
+        ? catalogVersions[recipe.id] ?? 0 : preferenceRevision;
+      if (revision !== null) headers['If-Match'] = String(revision);
+    }
+    const response = await apiRequest(path, {
+      cache, method, headers,
+      body: body === undefined ? undefined : JSON.stringify(body)
+    });
+    const payload = await response.json() as Partial<Record<RecipePreferenceResponseKey, unknown>> & {
+      revision?: number; versions?: Record<string, number>;
+    };
+    if (typeof payload.revision === 'number') preferenceRevision = payload.revision;
+    if (payload.versions) catalogVersions = payload.versions;
+    return payload;
   }
-
-  return (await response.json()) as Partial<
-    Record<RecipePreferenceResponseKey, unknown>
-  >;
+  // Serialize writes within this browser; D1 revisions reject stale writes from other devices.
+  if (method === 'GET') return execute();
+  const pending = mutationQueue.then(execute);
+  mutationQueue = pending.catch(() => {});
+  return pending;
 }
 
 async function requestRecipePreference<T>({
@@ -150,20 +161,6 @@ async function requestRecipePreference<T>({
   });
 
   return normalize(payload[responseKey]);
-}
-
-function fetchReadableRecipePreference<T, K extends RecipePreferenceResponseKey>(
-  store: RecipePreferenceStore<T, K>,
-  errorMessage: string,
-  cache?: RequestCache
-) {
-  return requestRecipePreference({
-    path: store.requestPath,
-    cache,
-    responseKey: store.responseKey,
-    normalize: store.normalize,
-    errorMessage
-  });
 }
 
 function persistReadableRecipePreference<T, K extends RecipePreferenceResponseKey>({
@@ -243,15 +240,6 @@ function persistRecipeScopedPreferenceField<
   });
 }
 
-async function fetchRecipeAppPreference<K extends RecipeAppPreferenceKey>(
-  key: K,
-  cache?: RequestCache
-) {
-  const { loadErrorMessage, store } = getRecipeAppPreferenceDefinition(key);
-
-  return fetchReadableRecipePreference(store, loadErrorMessage, cache);
-}
-
 function persistRecipeAppPreference<K extends RecipeAppPreferenceKey>({
   body,
   errorMessage,
@@ -329,50 +317,18 @@ export async function fetchRecipeAppDataSnapshot({
   cache?: RequestCache;
   onError?: (error: unknown) => void;
 } = {}) {
-  const cachedSnapshot = readCachedRecipeAppDataSnapshot();
-  const loadedResults = await Promise.allSettled(
-    recipeAppPreferenceKeys.map(async (key) => {
-      return [key, await fetchRecipeAppPreference(key, cache)] as const;
-    })
-  );
-  const didLoadAnyPreference = loadedResults.some(
-    (result) => result.status === 'fulfilled'
-  );
-  const didFailAnyPreference = loadedResults.some(
-    (result) => result.status === 'rejected'
-  );
-
-  if (!didLoadAnyPreference && cachedSnapshot) {
-    loadedResults.forEach((result) => {
-      if (result.status === 'rejected') {
-        onError(result.reason);
-      }
+  try {
+    const payload = await requestRecipePreferencePayload({
+      path: '/api/app-data', cache, errorMessage: 'Could not load app data.'
     });
-
-    return cachedSnapshot;
+    const snapshot = normalizeRecipeAppPreferenceSnapshot(payload);
+    writeCachedRecipeAppDataSnapshot(snapshot);
+    return snapshot;
+  } catch (error) {
+    if (error instanceof ApiRequestError && error.status === 401) throw error;
+    onError(error);
+    return readCachedRecipeAppDataSnapshot() ?? createEmptyRecipeAppPreferenceSnapshot();
   }
-
-  const loadedEntries = loadedResults.map((result, index) => {
-    const key = recipeAppPreferenceKeys[index];
-    const { store } = getRecipeAppPreferenceDefinition(key);
-
-    if (result.status === 'fulfilled') {
-      return result.value;
-    }
-
-    onError(result.reason);
-    return [
-      key,
-      cachedSnapshot?.[key] ?? store.createEmptyValue()
-    ] as const;
-  });
-  const loadedSnapshot = Object.fromEntries(loadedEntries) as RecipeAppPreferenceValueMap;
-
-  if (!didFailAnyPreference) {
-    writeCachedRecipeAppDataSnapshot(loadedSnapshot);
-  }
-
-  return loadedSnapshot;
 }
 
 export async function persistMealPlanRecipe(recipeId: string, date: string) {
@@ -568,6 +524,7 @@ export async function fetchRecipeCatalog({
     writeCachedRecipeCatalog(recipes);
     return recipes;
   } catch (error) {
+    if (error instanceof ApiRequestError && error.status === 401) throw error;
     onError(error);
     return readCachedRecipeCatalog() ?? ([] as Recipe[]);
   }

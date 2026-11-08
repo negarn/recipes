@@ -2,6 +2,7 @@ import { useEffect, useRef } from 'react';
 import type { Meta, StoryObj } from '@storybook/react';
 import { MemoryRouter } from 'react-router-dom';
 import App from '../App';
+import { createEmptyRecipeAppDataSnapshot } from '../helpers/appData';
 import { loadStorybookRecipes, storybookRecipes } from './fakeRecipes';
 
 type MockMode = 'default' | 'empty' | 'loading';
@@ -64,6 +65,18 @@ const STORYBOOK_SHOPPING_LIST_CUSTOM_ITEMS = [
 ];
 
 const defaultApiPayloadByPath: Record<string, unknown> = {
+  '/api/app-data': {
+    ...createEmptyRecipeAppDataSnapshot(),
+    cookedMealHistory: STORYBOOK_COOKED_MEAL_HISTORY,
+    mealPlan: STORYBOOK_MEAL_PLAN,
+    recipeBookmarks: STORYBOOK_RECIPE_BOOKMARKS,
+    recipeNotes: STORYBOOK_RECIPE_NOTES,
+    recipeRatings: STORYBOOK_RECIPE_RATINGS,
+    recipeServings: STORYBOOK_RECIPE_SERVINGS,
+    recipeSettings: STORYBOOK_RECIPE_SETTINGS,
+    shoppingListCustomItems: STORYBOOK_SHOPPING_LIST_CUSTOM_ITEMS,
+    revision: 1
+  },
   '/api/cooked-meal-history': {
     cookedMealHistory: STORYBOOK_COOKED_MEAL_HISTORY
   },
@@ -113,6 +126,7 @@ const defaultApiPayloadByPath: Record<string, unknown> = {
 };
 
 const emptyApiPayloadByPath: Record<string, unknown> = {
+  '/api/app-data': { ...createEmptyRecipeAppDataSnapshot(), revision: 1 },
   '/api/cooked-meal-history': { cookedMealHistory: {} },
   '/api/cooked-meal-history/entries': { cookedMealHistory: {} },
   '/api/meal-plan': { mealPlan: {} },

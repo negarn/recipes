@@ -1,0 +1,14 @@
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "negarcooks",
+  "pages_build_output_dir": "./dist",
+  "compatibility_date": "2026-11-08",
+  "d1_databases": [
+    {
+      "binding": "DB",
+      "database_name": "recipes",
+      "database_id": "d93fb858-fcd4-4e44-8784-ff5ab11a0a30",
+      "migrations_dir": "./migrations"
+    }
+  ]
+}

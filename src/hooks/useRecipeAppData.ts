@@ -48,20 +48,10 @@ function logError(error: unknown) {
 }
 
 type LoadedRecipeAppData = RecipeAppPreferenceValueMap;
-type CloudSyncRefreshRequest = {
-  shouldForceRefresh: boolean;
-  token: number;
-};
-
 export function useRecipeAppData({
-  cloudSyncRefreshRequest = {
-    shouldForceRefresh: false,
-    token: 0
-  },
   hasLoadedRecipes,
   getRecipeById
 }: {
-  cloudSyncRefreshRequest?: CloudSyncRefreshRequest;
   hasLoadedRecipes: boolean;
   getRecipeById: (recipeId: string) => Recipe | undefined;
 }) {
@@ -263,17 +253,6 @@ export function useRecipeAppData({
     };
   }
 
-  function resolveHydratedPreferenceValue<K extends RecipeAppPreferenceKey>(
-    key: K,
-    loadedValue: LoadedRecipeAppData[K],
-    currentValue: LoadedRecipeAppData[K],
-    { shouldPreserveDirtyValue = true }: { shouldPreserveDirtyValue?: boolean } = {}
-  ) {
-    return shouldPreserveDirtyValue && dirtyPreferenceKeysRef.current.has(key)
-      ? currentValue
-      : loadedValue;
-  }
-
   const mealPlanMutationDirtyKeys: RecipeAppPreferenceKey[] = [
     'mealPlan',
     'shoppingListChecks'
@@ -427,71 +406,13 @@ export function useRecipeAppData({
     persist: persistDefaultServingSize
   });
 
-  function applyLoadedRecipeAppData(
-    loadedRecipeAppData: LoadedRecipeAppData,
-    {
-      shouldPreserveDirtyValues = true
-    }: {
-      shouldPreserveDirtyValues?: boolean;
-    } = {}
-  ) {
+  function applyLoadedRecipeAppData(loadedRecipeAppData: LoadedRecipeAppData) {
     const currentRecipeAppData = getCurrentRecipeAppDataSnapshot();
-    const nextRecipeAppData = {
-      cookedMealHistory: resolveHydratedPreferenceValue(
-        'cookedMealHistory',
-        loadedRecipeAppData.cookedMealHistory,
-        currentRecipeAppData.cookedMealHistory,
-        { shouldPreserveDirtyValue: shouldPreserveDirtyValues }
-      ),
-      mealPlan: resolveHydratedPreferenceValue(
-        'mealPlan',
-        loadedRecipeAppData.mealPlan,
-        currentRecipeAppData.mealPlan,
-        { shouldPreserveDirtyValue: shouldPreserveDirtyValues }
-      ),
-      recipeBookmarks: resolveHydratedPreferenceValue(
-        'recipeBookmarks',
-        loadedRecipeAppData.recipeBookmarks,
-        currentRecipeAppData.recipeBookmarks,
-        { shouldPreserveDirtyValue: shouldPreserveDirtyValues }
-      ),
-      recipeNotes: resolveHydratedPreferenceValue(
-        'recipeNotes',
-        loadedRecipeAppData.recipeNotes,
-        currentRecipeAppData.recipeNotes,
-        { shouldPreserveDirtyValue: shouldPreserveDirtyValues }
-      ),
-      recipeRatings: resolveHydratedPreferenceValue(
-        'recipeRatings',
-        loadedRecipeAppData.recipeRatings,
-        currentRecipeAppData.recipeRatings,
-        { shouldPreserveDirtyValue: shouldPreserveDirtyValues }
-      ),
-      recipeServings: resolveHydratedPreferenceValue(
-        'recipeServings',
-        loadedRecipeAppData.recipeServings,
-        currentRecipeAppData.recipeServings,
-        { shouldPreserveDirtyValue: shouldPreserveDirtyValues }
-      ),
-      recipeSettings: resolveHydratedPreferenceValue(
-        'recipeSettings',
-        loadedRecipeAppData.recipeSettings,
-        currentRecipeAppData.recipeSettings,
-        { shouldPreserveDirtyValue: shouldPreserveDirtyValues }
-      ),
-      shoppingListChecks: resolveHydratedPreferenceValue(
-        'shoppingListChecks',
-        loadedRecipeAppData.shoppingListChecks,
-        currentRecipeAppData.shoppingListChecks,
-        { shouldPreserveDirtyValue: shouldPreserveDirtyValues }
-      ),
-      shoppingListCustomItems: resolveHydratedPreferenceValue(
-        'shoppingListCustomItems',
-        loadedRecipeAppData.shoppingListCustomItems,
-        currentRecipeAppData.shoppingListCustomItems,
-        { shouldPreserveDirtyValue: shouldPreserveDirtyValues }
-      )
-    } satisfies LoadedRecipeAppData;
+    const nextRecipeAppData = { ...loadedRecipeAppData };
+    // Do not overwrite changes made while the first load was in flight.
+    for (const key of dirtyPreferenceKeysRef.current) {
+      Object.assign(nextRecipeAppData, { [key]: currentRecipeAppData[key] });
+    }
     const nextShoppingListChecks = hasLoadedRecipes
       ? reconcileShoppingListChecks({
           getRecipeById,
@@ -527,11 +448,7 @@ export function useRecipeAppData({
   useEffect(() => {
     let isCurrent = true;
 
-    async function loadRecipeAppData({ isCloudSyncRefresh = false } = {}) {
-      if (isCloudSyncRefresh && dirtyPreferenceKeysRef.current.size > 0) {
-        return;
-      }
-
+    async function loadRecipeAppData() {
       const loadedRecipeAppData = await fetchRecipeAppDataSnapshot({
         onError: logError
       });
@@ -543,7 +460,7 @@ export function useRecipeAppData({
       applyLoadedRecipeAppData(loadedRecipeAppData);
     }
 
-    void loadRecipeAppData();
+    void loadRecipeAppData().catch(logError);
 
     return () => {
       isCurrent = false;
@@ -557,42 +474,6 @@ export function useRecipeAppData({
 
     void shoppingListState.reconcileAndApplyShoppingListChecks().catch(logError);
   }, [getRecipeById, hasLoadedRecipes]);
-
-  useEffect(() => {
-    if (!cloudSyncRefreshRequest.token) {
-      return;
-    }
-
-    let isCurrent = true;
-
-    async function loadCloudSyncedRecipeAppData() {
-      if (
-        !cloudSyncRefreshRequest.shouldForceRefresh &&
-        dirtyPreferenceKeysRef.current.size > 0
-      ) {
-        return;
-      }
-
-      const loadedRecipeAppData = await fetchRecipeAppDataSnapshot({
-        cache: 'no-store',
-        onError: logError
-      });
-
-      if (!isCurrent) {
-        return;
-      }
-
-      applyLoadedRecipeAppData(loadedRecipeAppData, {
-        shouldPreserveDirtyValues: !cloudSyncRefreshRequest.shouldForceRefresh
-      });
-    }
-
-    void loadCloudSyncedRecipeAppData();
-
-    return () => {
-      isCurrent = false;
-    };
-  }, [cloudSyncRefreshRequest]);
 
   async function handleMealPlanRecipeMarkCooked(currentDate: string, entryIndex: number) {
     const nextState = await markMealPlanEntryAsCooked(currentDate, entryIndex);

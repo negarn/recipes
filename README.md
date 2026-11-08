@@ -1,238 +1,100 @@
 # Recipes
 
-A local-first React + TypeScript recipe app for browsing recipes, saving bookmarks, planning meals, and managing a derived shopping list.
+A private recipe collection at **https://negarcooks.pages.dev**.
 
-## Demo Mode
+React + TypeScript, hosted on Cloudflare Pages. One Pages Function serves the API; D1 stores recipes, notes, ratings, bookmarks, meal plans, cooked history, shopping lists, and settings.
 
-If you want to record the app with mock data, run:
+No Google/Dropbox connection, OAuth client, Docker container, or separate server.
 
-```bash
-npm run dev:demo
+## Development
+
+Requires [Bun](https://bun.sh) 1.3+ and Node 20+ for Wrangler.
+
+```sh
+bun install
+bun run password                  # generate a local password
+bun run db:migrate
+bun run dev
 ```
 
-This seeds a separate `.recipes-demo/` persistence directory, leaves your real `~/.recipes/` data untouched, and starts the app on `http://127.0.0.1:5174`.
+Open **http://localhost:8788**. The frontend and Function rebuild when edited. Local D1 lives under the ignored `.wrangler/` directory and never uses production data. Stop with Ctrl-C.
 
-Use `npm run dev` to go back to your normal local data. To refresh the mock snapshot, run `npm run demo:seed`.
+The password is stored at **`~/.config/recipes/password.txt`** with permissions `0600`. The local `.dev.vars` contains only its verifier/session key. Both are excluded from source control.
 
-## Features
+If you already generated the production password on this machine, use the existing `.dev.vars`; do not generate another password merely to start development.
 
-- Browse the recipe catalog with search, pagination, and adult/children audience tabs.
+## Deploy
 
-  ![Recipe catalog browsing with search, pagination, and audience tabs](docs/recipe-catalog-search-tabs.gif)
-- Create and edit recipes from the recipes page, including ingredients, tags, nutrition, servings, and notes.
+Wrangler uses your local Cloudflare login, not GitHub secrets.
 
-  Prep and cook fields show readable amounts and ingredient names. Existing serving-size links stay intact when you edit the surrounding text. Editing a linked amount or ingredient label replaces that link with the text you entered; the serving-size check reviews the edited text when you save.
-
-  The editor's **Check scaling** button compares prep and cook amounts at smaller and doubled serving sizes. It reports broken ingredient links, likely unscaled quantities, missing quantities, and amounts that disagree with the ingredient list. Quantified uses across steps are added together, so a split such as 1 tsp in prep plus 1/2 tsp in cooking matches a 1.5 tsp ingredient total. Use **Edit step** to correct spelling or units, **Scale count** for portions such as burgers and bowls, or **Keep fixed** for an intentional fixed amount. Saving runs the same check and offers **Save anyway** when there are findings. These suggestions are heuristic: pinches, worded amounts, and ingredient fractions such as “1/3 of spinach” are left alone.
-
-  **Check consistency** reviews ingredient names against the established naming rules and ingredients in your other recipes. It suggests consistent names such as Ground beef and Feta, likely ingredient-list typos, and duplicate ingredient lines. Capitalisation is ignored by the check; ingredient names are automatically converted to title case when saving or updating a recipe. In prep and cook steps, it only compares recognized ingredient spelling variants with your collection, including visible ingredient-link labels while preserving their IDs; it does not guess typo corrections for ordinary prose. Spelling variants such as chili/chilli and yogurt/yoghurt are compared with the spellings in your other recipes, without enforcing a regional standard. If your collection uses both versions, the check reports the conflict for manual review. Use **Edit ingredient**, **Edit step**, or a suggested correction; ambiguous ingredient-list spellings require a manual edit. Results update as you edit, and saving runs both checks with the same **Save anyway** option. Suggestions only affect the current draft when you apply them. This focused ingredient check is heuristic and may miss general spelling mistakes or unfamiliar ingredients.
-
-  ![Create and edit recipes on the recipes page](docs/add-edit-recipe.gif)
-- Open recipe details with scaled ingredients, grouped method steps, nutrition, ratings, bookmarks, and optional step timers.
-
-  ![Recipe details with scaled ingredients, grouped method steps, nutrition, ratings, bookmarks, and optional step timers](docs/recipe-details.gif)
-- Save text selections as bookmarks, search them later, and jump back to the source recipe.
-
-  ![Save text selections as bookmarks, search them later, and jump back to the source recipe](docs/bookmarks.gif)
-- Add recipes to a date-based meal plan, move or remove entries, and mark meals as cooked.
-
-  ![Add recipes to a date-based meal plan, move or remove entries, and mark meals as cooked](docs/meal-plan.gif)
-- Review cooked history by month.
-
-  ![Review cooked history by month](docs/cooked-history.gif)
-- Build a shopping list from the meal plan, check items off, and add custom entries.
-
-  ![Build a shopping list from the meal plan, check items off, and add custom entries](docs/shopping-list.gif)
-- Set a global default serving size in Settings.
-
-  ![Set a global default serving size in Settings](docs/global-serving-size.gif)
-
-## Tech Stack
-
-- React 18
-- TypeScript
-- Vite
-- React Router
-- Tailwind CSS v4
-- Vitest
-- Storybook
-
-## Getting Started
-
-This project expects Node 20 or newer.
-
-```bash
-npm install
-npm run dev
+```sh
+bunx wrangler login
+bun run deploy
 ```
 
-Open `http://localhost:5173`.
+The checked-in `wrangler.jsonc` identifies the Pages project and D1 database. Deploy builds the app, applies pending production migrations, and uploads to the `main` Pages branch. It does **not** import or replace data.
 
-## Docker Deploy
+For a fresh account, create a D1 database and a Pages project, then update their IDs/names in `wrangler.jsonc`. Configure the password before the first deployment:
 
-Every push to `main` builds a Docker image and publishes it to Docker Hub.
-To publish a security rebuild of the same commit, open **Actions → Build and push Docker image → Run workflow** and select `main`.
-Each build pulls the current Node 24 LTS image for Debian 13 and checks for Debian package upgrades. Apply kernel fixes on the Docker host separately.
-
-The workflow expects these GitHub secrets:
-
-- `DOCKERHUB_USERNAME`
-- `DOCKERHUB_TOKEN`
-
-Images are tagged as:
-
-- `latest`
-- `main`
-- `sha-<full commit sha>`
-
-For Docker Compose, a service can track `latest` and keep the app state on a volume:
-
-```yaml
-services:
-  recipes:
-    image: your-dockerhub-user/recipes:latest
-    ports:
-      - "4173:4173"
-    environment:
-      RECIPE_PREFERENCES_DATA_DIR: /data/recipes
-      RECIPE_PUBLIC_ORIGIN: https://recipes.example.com
-      RECIPE_AUTH_ALLOWED_EMAIL: you@example.com
-      RECIPE_AUTH_GOOGLE_CLIENT_ID: your-google-oauth-client-id
-      RECIPE_AUTH_GOOGLE_CLIENT_SECRET: your-google-oauth-client-secret
-      RECIPE_AUTH_SESSION_SECRET: a-long-random-string
-    volumes:
-      - recipes-data:/data/recipes
-    restart: unless-stopped
-
-volumes:
-  recipes-data:
+```sh
+bun run password --remote
 ```
 
-To refresh a running deployment, pull the new image and restart the service:
+There is one application secret: `AUTH_KEY`. Missing or malformed configuration fails closed. Cloudflare stores the password's SHA-256 verifier, which also keys signed sessions; it never receives the plaintext password during setup. This is safe because the setup command **always generates 192 random bits**, not a human-chosen password.
 
-```bash
-docker compose pull recipes
-docker compose up -d recipes
+### Rotate the password
+
+```sh
+bun run password --remote --rotate
+bun run deploy
 ```
 
-The container already points `RECIPE_PREFERENCES_DATA_DIR` at `/data/recipes`, so mounting that path keeps recipe data between updates and container restarts.
+This replaces the local password file and updates local/Cloudflare configuration. Redeployment activates the new password and invalidates all existing sessions. Share the password through a private channel, not this repository.
 
-If you serve the app from an external origin, set `RECIPE_PUBLIC_ORIGIN` to that exact origin so auth, cloud sync callbacks, and browser requests line up.
+Login attempts are limited to ten per IP per five minutes using atomic D1 counters. Sessions last 30 days in Secure, HttpOnly, SameSite=Strict cookies. Mutating requests require the same Origin. There are no email accounts, registration, password recovery, or external identity providers; anyone holding the password can access the collection.
 
-## Scripts
+## Backups and restore
 
-```bash
-npm run dev            # start the Vite dev server
-npm run demo:seed      # seed mock data into .recipes-demo/
-npm run dev:demo       # seed mock data and start the demo server
-npm run build          # type-check and create a production build
-npm run preview        # preview the built app locally
-npm run test           # run tests in watch mode
-npm run test:run       # run tests once
-npm run storybook      # start Storybook
-npm run build-storybook # build Storybook for production
+Use **Settings → Download backup** to export all data as one portable JSON file. It contains private recipe data, not login credentials.
+
+D1 also provides [Time Travel recovery](https://developers.cloudflare.com/d1/reference/time-travel/) (currently seven days on the free plan).
+
+Import a downloaded backup into an empty database:
+
+```sh
+bun run db:import /absolute/path/to/backup.json --local
+# or, after applying production migrations:
+bun run db:import /absolute/path/to/backup.json --remote
 ```
 
-The markup regression tests cover recipe editing, recipe steps at different serving sizes, review feedback, and saved bookmarks, including broken links. To run the same checks against every recipe in a local catalog:
+Existing data is refused unless you explicitly pass **`--replace`**. Back it up first. Replacement overwrites the collection, not merges it; reload open browsers afterward. Imports validate the complete snapshot before touching D1. Verify the downloaded export against the source after restoring.
 
-```bash
-RECIPE_MARKUP_CATALOG="$HOME/.recipes/recipes.json" npm run test:run -- src/helpers/recipeMarkup.test.ts
+The migration from the old VPS is a one-time copy. The old app and this app **do not sync**. VPS services and credentials are not changed by any command here.
+
+## Offline use and multiple devices
+
+After signing in online, recipes and app data are cached in that browser for offline reading. Changes still require the server; there is no offline write queue.
+
+Signing out, or receiving an expired-session response online, clears this browser's cached data. Use offline mode only on a trusted device: browser storage is not encrypted.
+
+All devices use the same D1 database. Reload to see changes from another device. Revisions reject stale edits instead of silently overwriting newer data.
+
+## Checks
+
+```sh
+bun run build
+bun run test:run
+bun run storybook
+bun run build-storybook
 ```
 
-## Persistence
+Tests cover recipe editing/scaling/markup and the API running against real local D1 through Miniflare: authentication, session cookies, CSRF, login throttling, input validation, all data mutations, atomic meal completion, concurrent/stale writes, and backup export.
 
-Runtime recipe state and user data live in a private storage directory outside the repo by default.
+## Layout
 
-By default, persisted JSON files are written to `~/.recipes/` on the local machine. If that directory does not exist yet, the app creates it on first launch.
-
-The app stores these JSON files there:
-
-- `recipes.json`
-- `meal-plan.json`
-- `cooked-meal-history.json`
-- `recipe-bookmarks.json`
-- `recipe-notes.json`
-- `recipe-ratings.json`
-- `recipe-servings.json`
-- `recipe-settings.json`
-- `shopping-list-checks.json`
-- `shopping-list-custom-items.json`
-
-A local Vite middleware in `server/recipePreferencesApi.ts` serves `/api/*` routes and writes updates atomically. By default it only accepts localhost requests; if you set `RECIPE_PUBLIC_ORIGIN`, it will also accept requests from that single configured origin. Set `RECIPE_PREFERENCES_DATA_DIR` if you want to point persistence at another directory.
-
-### Google App Sign-In
-
-Set `RECIPE_AUTH_ALLOWED_EMAIL` to require Google sign-in before the app opens. Only that exact Google email address may sign in.
-
-Create a Google OAuth web client, then set:
-
-```bash
-RECIPE_AUTH_ALLOWED_EMAIL=you@example.com
-RECIPE_AUTH_GOOGLE_CLIENT_ID=...
-RECIPE_AUTH_GOOGLE_CLIENT_SECRET=...
-RECIPE_AUTH_SESSION_SECRET=...
-```
-
-Add this authorized redirect URI to the Google OAuth client:
-
-- `https://recipes.example.com/auth/google/callback`
-
-Use your real `RECIPE_PUBLIC_ORIGIN` in place of `https://recipes.example.com`. For local testing, use `http://127.0.0.1:5173/auth/google/callback`.
-
-The app session is stored in a signed, HTTP-only cookie so mobile browsers should stay signed in across normal app focus changes. The auth client ID/secret can be the same OAuth web client used for Google Drive cloud sync, as long as both redirect URLs are configured.
-
-### Offline Use
-
-Production builds register a service worker and include a web app manifest. After you have opened the app online once, the browser caches the app shell plus successful API reads. The app also stores the last successful recipe catalog and app-data snapshot in browser storage, so the shopping list can still render when requests fail offline.
-
-Offline changes are intentionally conservative: read-only access is cached, while writes still need the server to save and sync reliably.
-
-### Cloud Sync
-
-Settings can connect Google Drive or Dropbox for cloud sync.
-
-Cloud sync is optional. To use it, create an OAuth app with Google and/or Dropbox, copy the app credentials into this project’s environment, and then connect the provider from Settings.
-
-These are app credentials, not your personal Google or Dropbox password. The app uses them to open the sign-in flow and store files in your account.
-
-1. Create an OAuth app:
-   - Google: create an OAuth client in Google Cloud Console.
-   - Dropbox: create an app in the Dropbox developer console.
-2. Copy `.env.example` to `.env.local`, then fill in the client ID and client secret values:
-
-   ```bash
-   cp .env.example .env.local
-   RECIPE_GOOGLE_DRIVE_CLIENT_ID=...
-   RECIPE_GOOGLE_DRIVE_CLIENT_SECRET=...
-   RECIPE_DROPBOX_CLIENT_ID=...
-   RECIPE_DROPBOX_CLIENT_SECRET=...
-   ```
-
-3. Add callback URLs for the app origin:
-   - `http://127.0.0.1:5173/api/cloud-sync/google-drive/callback`
-   - `http://127.0.0.1:5173/api/cloud-sync/dropbox/callback`
-   - If you run the app somewhere else, use that origin instead of `127.0.0.1:5173`.
-4. Restart the app, then open Settings and click Connect.
-
-If you only want one provider, you only need to create that provider’s OAuth app and set its two environment variables.
-
-Once connected, later recipe, meal-plan, bookmark, note, rating, serving, shopping-list, or settings changes sync automatically.
-
-## Project Layout
-
-- `src/App.tsx`: app routes and provider wiring.
-- `src/pages/`: top-level pages.
-- `src/components/`: reusable UI components.
-- `src/contexts/RecipeAppDataContext.tsx`: shared app data and actions.
-- `src/hooks/`: state and interaction hooks.
-- `src/helpers/`: route, persistence, normalization, and recipe helpers.
-- `src/stories/`: Storybook states and fixtures.
-- `server/recipePreferencesApi.ts`: local persistence API for development and tests.
-- Runtime JSON files live in `~/.recipes/` by default.
-
-## Development Notes
-
-- The app is intentionally local-first; there is no separate backend service to run.
-- The built-in API is localhost-only by default. If you set `RECIPE_PUBLIC_ORIGIN`, it also accepts requests from that configured origin and uses it for cloud sync redirects.
-- If you want to reset app state, delete the JSON files in `~/.recipes/` or in the directory pointed to by `RECIPE_PREFERENCES_DATA_DIR`.
-- Storybook is available for isolated component work and UI review.
+- `src/`: existing recipe UI and domain logic.
+- `worker/`: password sessions and the Pages API.
+- `migrations/`: D1 schema.
+- `scripts/password.ts`: generate/rotate the sole application credential.
+- `scripts/import.ts`: validated backup import.
+- `wrangler.jsonc`: Cloudflare deployment and database binding.

@@ -5,6 +5,7 @@ import { MemoryRouter, Route, Routes } from 'react-router-dom';
 import { RecipeAppDataProvider } from '../contexts/RecipeAppDataContext';
 import { appRoutePaths, getRecipeRoutePath } from '../helpers/appRoutes';
 import { RecipePage } from '../pages/RecipePage';
+import { createEmptyRecipeAppDataSnapshot } from '../helpers/appData';
 import { loadStorybookRecipes, storybookRecipes } from './fakeRecipes';
 
 type MockMode = 'default' | 'empty' | 'loading';
@@ -33,6 +34,12 @@ const baseApiPayloadByPath: Record<string, unknown> = {
 };
 
 function resolveApiPayload(pathname: string, mode: MockMode) {
+  if (pathname === '/api/app-data') {
+    return {
+      ...createEmptyRecipeAppDataSnapshot(), revision: 1,
+      recipeNotes: mode === 'default' ? { [EXISTING_RECIPE_ID]: EXISTING_RECIPE_NOTE } : {}
+    };
+  }
   if (mode === 'default' && pathname === '/api/recipe-notes') {
     return {
       recipeNotes: {
